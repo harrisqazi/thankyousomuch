@@ -1,0 +1,111 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: inquiries
+    description: Sales inquiries
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /inquiry:
+    post:
+      operationId: sendInquiry
+      tags: [inquiries]
+      summary: Send a sales inquiry
+      description: Validates and emails a new inquiry. Prices are resolved from the server's service catalog.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InquiryInput"
+      responses:
+        "202":
+          description: The SMTP server accepted the message.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InquiryResponse"
+        "400":
+          description: The inquiry is invalid.
+        "429":
+          description: Too many inquiries were submitted.
+        "503":
+          description: Email delivery is unavailable or failed.
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    InquiryInput:
+      type: object
+      additionalProperties: false
+      properties:
+        serviceId:
+          type: string
+          enum:
+            - missed-call-rescue
+            - instant-lead-reply
+            - quote-follow-up
+            - ai-receptionist
+            - custom-ai-integration
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        businessName:
+          type: string
+          minLength: 1
+          maxLength: 120
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        phone:
+          type: string
+          maxLength: 50
+        message:
+          type: string
+          maxLength: 4000
+        website:
+          type: string
+          maxLength: 200
+      required:
+        - serviceId
+        - name
+        - businessName
+        - email
+        - phone
+        - message
+        - website
+    InquiryResponse:
+      type: object
+      properties:
+        accepted:
+          type: boolean
+      required:
+        - accepted
+

@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Thank You So Much — Enterprise AI"
+description = "A responsive website for Thank You So Much, an expert in enterprise AI, offering dependable business follow-up automation with SMTP-backed lead capture."
+version = "1.0.0"
+id = "artifacts/good-work-menu"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22546
+
+[services.development]
+run = "pnpm --filter @workspace/good-work-menu run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/good-work-menu", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/good-work-menu/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22546"
+BASE_PATH = "/"
