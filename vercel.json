@@ -1,0 +1,5 @@
+{
+  "installCommand": "pnpm install --frozen-lockfile",
+  "buildCommand": "PORT=3000 BASE_PATH=/ pnpm --filter @workspace/good-work-menu run build",
+  "outputDirectory": "artifacts/good-work-menu/dist/public"
+}

@@ -261,7 +261,7 @@ function Home() {
           <div className="absolute bottom-0 left-5 right-5 border-t border-[#161616]/20 sm:left-9 sm:right-9 lg:left-14 lg:right-14" />
         </section>
 
-        <section id="menu" className="mx-auto max-w-[1440px] scroll-mt-6 px-5 py-8 sm:px-9 sm:py-12 lg:px-14 lg:py-14">
+        <section id="menu" className="mx-auto max-w-[1440px] scroll-mt-6 bg-[#EAF4FF] px-5 py-8 sm:px-9 sm:py-12 lg:px-14 lg:py-14">
           <div className="mb-5 flex flex-col justify-between gap-2 sm:mb-7 sm:flex-row sm:items-end">
             <div>
               <h2 className="display text-4xl leading-[1.04] sm:text-5xl">MENU.</h2>
