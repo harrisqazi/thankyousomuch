@@ -256,45 +256,47 @@ function Home() {
             YOU DO GREAT WORK.<br className="hidden md:block" /> WE HANDLE THE FOLLOW-UP.
           </h1>
           <p className="reveal reveal-delay-1 mt-4 max-w-[760px] text-[.98rem] font-semibold leading-relaxed sm:mt-5 sm:text-lg">
-            Missed calls. New inquiries. Unanswered quotes. We take care of the follow-up so you can focus on what you do best.
+            Missed calls. New inquiries. Unanswered quotes. You focus on what you do best, we take care of the follow-up. Your customers tell you, “Thank you so much.”
           </p>
           <div className="absolute bottom-0 left-5 right-5 border-t border-[#161616]/20 sm:left-9 sm:right-9 lg:left-14 lg:right-14" />
         </section>
 
-        <section id="menu" className="mx-auto max-w-[1440px] scroll-mt-6 bg-[#EAF4FF] px-5 py-8 sm:px-9 sm:py-12 lg:px-14 lg:py-14">
-          <div className="mb-5 flex flex-col justify-between gap-2 sm:mb-7 sm:flex-row sm:items-end">
-            <div>
-              <h2 className="display text-4xl leading-[1.04] sm:text-5xl">MENU.</h2>
-              <p className="mono mt-2 text-[.68rem] font-medium uppercase tracking-[.17em] text-[#cd1725]">GOOD SERVICE. SIMPLE PRICES.</p>
+        <section id="menu" className="w-full scroll-mt-6 bg-white">
+          <div className="mx-auto max-w-[1440px] px-5 py-8 sm:px-9 sm:py-12 lg:px-14 lg:py-14">
+            <div className="mb-5 flex flex-col justify-between gap-2 sm:mb-7 sm:flex-row sm:items-end">
+              <div>
+                <h2 className="display text-4xl leading-[1.04] sm:text-5xl">MENU.</h2>
+                <p className="mono mt-2 text-[.68rem] font-medium uppercase tracking-[.17em] text-[#cd1725]">GOOD SERVICE. SIMPLE PRICES.</p>
+              </div>
             </div>
-          </div>
-          <div className="border-t-2 border-[#161616]" role="group" aria-label="Follow-up services">
-            {PRODUCTS.map((product) => (
-              <button
-                key={product.id}
-                type="button"
-                onClick={() => openInquiry(product.id)}
-                className="service-button group w-full border-b border-[#161616]/30 py-4 text-left sm:py-5"
-                data-testid={`button-service-${product.id}`}
-              >
-                <span className="service-row">
-                  <span className="mono text-[.7rem] tracking-[.13em] text-[#cd1725]">{product.number}</span>
-                  <span className="service-icon" aria-hidden="true"><LineIllustration kind={product.icon} /></span>
-                  <span className="service-title-wrap min-w-0">
-                    <span className="display block text-[1.2rem] leading-tight sm:text-[1.45rem] lg:text-[1.65rem]">{product.name}</span>
-                    <span className="service-copy mt-1 block text-[.78rem] font-semibold leading-snug text-[#161616]/70 sm:text-sm">{product.description}</span>
+            <div className="border-t-2 border-[#161616]" role="group" aria-label="Follow-up services">
+              {PRODUCTS.map((product) => (
+                <button
+                  key={product.id}
+                  type="button"
+                  onClick={() => openInquiry(product.id)}
+                  className="service-button group w-full border-b border-[#161616]/30 py-4 text-left sm:py-5"
+                  data-testid={`button-service-${product.id}`}
+                >
+                  <span className="service-row">
+                    <span className="mono text-[.7rem] tracking-[.13em] text-[#cd1725]">{product.number}</span>
+                    <span className="service-icon" aria-hidden="true"><LineIllustration kind={product.icon} /></span>
+                    <span className="service-title-wrap min-w-0">
+                      <span className="display block text-[1.2rem] leading-tight sm:text-[1.45rem] lg:text-[1.65rem]">{product.name}</span>
+                      <span className="service-copy mt-1 block text-[.78rem] font-semibold leading-snug text-[#161616]/70 sm:text-sm">{product.description}</span>
+                    </span>
+                    <span className="dot-leader" aria-hidden="true" />
+                    <span className="service-price display whitespace-nowrap text-[1.05rem] sm:text-[1.3rem]">{formatUsd(product.monthlyPrice)}<span className="mono text-[.67rem] font-normal">/month</span></span>
+                    <span className="service-arrow flex h-9 w-9 items-center justify-center rounded-full border border-[#161616]/30 transition-colors group-hover:border-[#cd1725] group-hover:bg-[#cd1725] group-hover:text-white">
+                      <ArrowUpRight size={17} />
+                    </span>
                   </span>
-                  <span className="dot-leader" aria-hidden="true" />
-                <span className="service-price display whitespace-nowrap text-[1.05rem] sm:text-[1.3rem]">{formatUsd(product.monthlyPrice)}<span className="mono text-[.67rem] font-normal">/month</span></span>
-                  <span className="service-arrow flex h-9 w-9 items-center justify-center rounded-full border border-[#161616]/30 transition-colors group-hover:border-[#cd1725] group-hover:bg-[#cd1725] group-hover:text-white">
-                    <ArrowUpRight size={17} />
-                  </span>
-                </span>
-                <span className="mono mt-2 block pl-[5rem] text-[.61rem] uppercase tracking-[.1em] text-[#161616]/70 sm:pl-[6.7rem]">One-time setup {formatUsd(product.setupPrice)}</span>
-              </button>
-            ))}
+                  <span className="mono mt-2 block pl-[5rem] text-[.61rem] uppercase tracking-[.1em] text-[#161616]/70 sm:pl-[6.7rem]">One-time setup {formatUsd(product.setupPrice)}</span>
+                </button>
+              ))}
+            </div>
+            <p className="mt-5 text-center text-[.62rem] font-extrabold leading-relaxed tracking-[.07em] sm:text-xs" data-testid="text-menu-terms">MONTH-TO-MONTH · STANDARD INSTALLATION INCLUDED AFTER SETUP · NO LONG-TERM CONTRACT</p>
           </div>
-          <p className="mt-5 text-center text-[.62rem] font-extrabold leading-relaxed tracking-[.07em] sm:text-xs" data-testid="text-menu-terms">MONTH-TO-MONTH · STANDARD INSTALLATION INCLUDED AFTER SETUP · NO LONG-TERM CONTRACT</p>
         </section>
 
         <section className="mx-auto max-w-[1440px] px-5 pb-12 sm:px-9 sm:pb-16 lg:px-14">
