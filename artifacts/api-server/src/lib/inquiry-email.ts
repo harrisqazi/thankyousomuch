@@ -40,12 +40,13 @@ function requiredSetting(name: string): string {
 }
 
 export async function sendInquiryEmail(inquiry: InquiryEmail): Promise<void> {
-  const host = requiredSetting("SMTP_HOST");
-  const portValue = requiredSetting("SMTP_PORT");
+  const host = process.env.SMTP_HOST?.trim() || "smtp.gmail.com";
+  const portValue = process.env.SMTP_PORT?.trim() || "465";
   const user = requiredSetting("SMTP_USER");
   const pass = requiredSetting("SMTP_PASS");
-  const from = requiredSetting("SMTP_FROM");
-  const to = requiredSetting("LEAD_TO_EMAIL");
+  const from = process.env.SMTP_FROM?.trim() || user;
+  const to =
+    process.env.LEAD_TO_EMAIL?.trim() || requiredSetting("NOTIFY_EMAIL");
   const port = Number(portValue);
 
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
