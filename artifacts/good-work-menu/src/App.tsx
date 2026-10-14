@@ -269,7 +269,7 @@ function Home() {
             <div className="mb-5 flex flex-col justify-between gap-2 sm:mb-7 sm:flex-row sm:items-end">
               <div>
                 <h2 className="display text-4xl leading-[1.04] sm:text-5xl">MENU.</h2>
-                <p className="mono mt-2 text-[.68rem] font-medium uppercase tracking-[.17em] text-[#cd1725]">GOOD SERVICE. SIMPLE PRICES.</p>
+                <p className="mono mt-2 text-[.68rem] font-medium uppercase tracking-[.17em] text-[#cd1725]">GREAT SERVICE. SIMPLE PRICES.</p>
               </div>
             </div>
             <div className="border-t-2 border-[#161616]" role="group" aria-label="Follow-up services">
