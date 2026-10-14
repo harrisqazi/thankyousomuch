@@ -256,12 +256,15 @@ function Home() {
             YOU DO GREAT WORK.<br className="hidden md:block" /> WE HANDLE THE FOLLOW-UP.
           </h1>
           <p className="reveal reveal-delay-1 mt-4 max-w-[760px] text-[.98rem] font-semibold leading-relaxed sm:mt-5 sm:text-lg">
-            Missed calls. New inquiries. Unanswered quotes. You focus on what you do best, we take care of the follow-up. Your customers tell you, “Thank you so much.”
+            Missed calls. New inquiries. Unanswered quotes. You focus on what you do best, we take care of the follow-up.
+          </p>
+          <p className="reveal reveal-delay-2 mt-2 max-w-[760px] text-base font-bold leading-relaxed sm:mt-3 sm:text-lg">
+            Have your customers saying, “Thank you so much.”
           </p>
           <div className="absolute bottom-0 left-5 right-5 border-t border-[#161616]/20 sm:left-9 sm:right-9 lg:left-14 lg:right-14" />
         </section>
 
-        <section id="menu" className="w-full scroll-mt-6 bg-white">
+        <section id="menu" className="relative z-[21] w-full scroll-mt-6 bg-white">
           <div className="mx-auto max-w-[1440px] px-5 py-8 sm:px-9 sm:py-12 lg:px-14 lg:py-14">
             <div className="mb-5 flex flex-col justify-between gap-2 sm:mb-7 sm:flex-row sm:items-end">
               <div>
