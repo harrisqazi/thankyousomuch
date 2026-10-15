@@ -164,13 +164,16 @@
   .service-icon { width:2.5rem; height:2.5rem; }
   .hero-title { font-size:clamp(2.6rem, 10vw, 4.2rem); }
 }
+@media (max-width:639px) {
+  .site-header { flex-direction:column; align-items:stretch; gap:.5rem; padding-top:1rem; padding-bottom:.5rem; }
+  .site-header .brand-link { align-self:center; flex-shrink:0; min-height:44px; }
+  .site-header .brand-wordmark { font-size:1.05rem; white-space:nowrap; }
+  .site-nav { width:100%; justify-content:space-between; gap:1.5rem; border-top:1px solid rgba(22,22,22,.15); padding-top:.25rem; }
+  .site-nav .menu-link { display:inline-flex; align-items:center; justify-content:center; min-width:44px; min-height:44px; font-size:.7rem; white-space:nowrap; }
+  .site-nav .secondary-button { font-size:.73rem; white-space:nowrap; }
+}
 @media (max-width:360px) {
   .site-header { padding-inline:1rem; }
-  .site-header .brand-wordmark { font-size:.78rem; white-space:nowrap; }
-  .site-nav { gap:.5rem; }
-  .site-nav a, .site-nav button { white-space:nowrap; }
-  .site-nav a { font-size:.58rem; }
-  .site-nav .secondary-button { font-size:.61rem; letter-spacing:.03em; }
 }
 @media (prefers-reduced-motion:reduce) {
   *, *::before, *::after { scroll-behavior:auto !important; animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; }

@@ -240,11 +240,11 @@ function Home() {
   return (
     <div className="site-shell paper-grain min-h-[100dvh] bg-[#FFE76E] text-[#161616]">
       <header className="site-header relative z-10 mx-auto flex max-w-[1440px] items-center justify-between px-5 py-3 sm:px-9 lg:px-14">
-        <a href="#top" className="flex items-center gap-2.5" aria-label="Thank You So Much home" data-testid="link-home">
+        <a href="#top" className="brand-link flex items-center gap-2.5" aria-label="Thank You So Much home" data-testid="link-home">
           <span className="display flex h-9 w-9 items-center justify-center rounded-full bg-[#cd1725] text-[.56rem] font-bold tracking-[-.04em] text-white">TYSM</span>
           <span className="brand-wordmark display text-[.82rem] tracking-[-.045em] sm:text-[1.2rem]">THANK YOU SO MUCH<span className="text-[#cd1725]">.</span></span>
         </a>
-          <nav className="site-nav flex items-center gap-5 sm:gap-9">
+        <nav className="site-nav flex items-center gap-5 sm:gap-9" aria-label="Main navigation">
           <a className="menu-link mono text-[.7rem] font-medium uppercase tracking-[.16em]" href="#menu" data-testid="link-menu">MENU</a>
           <button onClick={() => openInquiry(CUSTOM_PRODUCT.id)} className="secondary-button flex min-h-11 items-center gap-1.5 border-b-2 border-[#cd1725] px-1 text-[.73rem] font-extrabold uppercase tracking-[.08em]" data-testid="button-header-message">
             MESSAGE US ↗
