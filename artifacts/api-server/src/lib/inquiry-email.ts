@@ -42,16 +42,20 @@ function requiredSetting(name: string): string {
 export async function sendInquiryEmail(inquiry: InquiryEmail): Promise<void> {
   const host = process.env.SMTP_HOST?.trim() || "smtp.gmail.com";
   const portValue = process.env.SMTP_PORT?.trim() || "465";
-  const user = requiredSetting("SMTP_USER");
-  const pass = requiredSetting("SMTP_PASS");
+  const user = process.env.SMTP_USER?.trim() || process.env.GMAIL_USER?.trim();
+  const rawPass =
+    process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD || "";
+  // Gmail displays App Passwords in groups separated by spaces; accept either
+  // the grouped display form or the compact value used by SMTP.
+  const pass = rawPass.replace(/\s+/g, "");
   const from = process.env.SMTP_FROM?.trim() || user;
   const to =
-    process.env.LEAD_TO_EMAIL?.trim() || requiredSetting("NOTIFY_EMAIL");
+    process.env.LEAD_TO_EMAIL?.trim() ||
+    process.env.NOTIFY_EMAIL?.trim() ||
+    process.env.ADMIN_EMAIL?.trim() ||
+    "admin@pooly.org";
+  const resendApiKey = process.env.RESEND_API_KEY?.trim();
   const port = Number(portValue);
-
-  if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    throw new InquiryEmailError("configuration", undefined, "SMTP_PORT (must be a number from 1 to 65535)");
-  }
 
   const subjectBusiness = inquiry.businessName.replace(/[\r\n]+/g, " ").trim();
   const subject = `NEW LEAD — ${inquiry.productName} — ${subjectBusiness}`;
@@ -80,46 +84,115 @@ export async function sendInquiryEmail(inquiry: InquiryEmail): Promise<void> {
     .join("");
   const html = `<!doctype html><html><body style="margin:0;padding:32px;background:#fff7ec;color:#161616;font-family:Arial,sans-serif"><main style="max-width:640px;margin:0 auto"><p style="margin:0 0 8px;color:#cd1725;font-size:12px;font-weight:bold;letter-spacing:2px">GOOD WORK. · NEW INQUIRY</p><h1 style="margin:0 0 24px;color:#cd1725;font-size:28px">${escapeHtml(subject)}</h1><table style="width:100%;border-collapse:collapse;font-size:15px">${htmlRows}</table></main></body></html>`;
 
-  const transporter = createTransport({
-    host,
-    port,
-    secure: port === 465,
-    requireTLS: port !== 465,
-    auth: { user, pass },
-    connectionTimeout: 10_000,
-    greetingTimeout: 10_000,
-    socketTimeout: 20_000,
-    tls: { minVersion: "TLSv1.2" },
-  });
+  let smtpFailure: InquiryEmailError | undefined;
 
-  try {
-    const result = await transporter.sendMail({
-      from,
-      to,
-      replyTo: inquiry.email,
-      subject,
-      text,
-      html,
-    });
-    const accepted = result.accepted.some(
-      (recipient) => recipient.toLowerCase() === to.toLowerCase(),
-    );
-    if (!accepted) {
-      throw new InquiryEmailError("rejected");
+  if (user && pass) {
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+      smtpFailure = new InquiryEmailError(
+        "configuration",
+        undefined,
+        "SMTP_PORT (must be a number from 1 to 65535)",
+      );
+    } else {
+      const transporter = createTransport({
+        host,
+        port,
+        secure: port === 465,
+        requireTLS: port !== 465,
+        auth: { user, pass },
+        connectionTimeout: 10_000,
+        greetingTimeout: 10_000,
+        socketTimeout: 20_000,
+        tls: { minVersion: "TLSv1.2" },
+      });
+
+      try {
+        const result = await transporter.sendMail({
+          from,
+          to,
+          replyTo: inquiry.email,
+          subject,
+          text,
+          html,
+        });
+        const accepted = result.accepted.some(
+          (recipient) => recipient.toLowerCase() === to.toLowerCase(),
+        );
+        if (accepted) return;
+        smtpFailure = new InquiryEmailError("rejected");
+      } catch (error) {
+        const smtpCode =
+          typeof error === "object" &&
+          error !== null &&
+          "code" in error &&
+          typeof error.code === "string"
+            ? error.code
+            : undefined;
+        smtpFailure = new InquiryEmailError("delivery", smtpCode);
+      } finally {
+        transporter.close();
+      }
     }
-  } catch (error) {
-    if (error instanceof InquiryEmailError) {
-      throw error;
-    }
-    const smtpCode =
-      typeof error === "object" &&
-      error !== null &&
-      "code" in error &&
-      typeof error.code === "string"
-        ? error.code
-        : undefined;
-    throw new InquiryEmailError("delivery", smtpCode);
-  } finally {
-    transporter.close();
   }
+
+  // Match Frame of Reference's second delivery path: only use Resend when it
+  // has been explicitly configured for this Vercel project.
+  if (resendApiKey) {
+    try {
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${resendApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: process.env.RESEND_FROM?.trim() ||
+            "Thank You So Much <onboarding@resend.dev>",
+          to: [to],
+          reply_to: inquiry.email,
+          subject,
+          text,
+          html,
+        }),
+      });
+      if (response.ok) return;
+      smtpFailure = new InquiryEmailError(
+        "delivery",
+        `RESEND_HTTP_${response.status}`,
+      );
+    } catch (error) {
+      const code =
+        typeof error === "object" &&
+        error !== null &&
+        "cause" in error &&
+        typeof error.cause === "object" &&
+        error.cause !== null &&
+        "code" in error.cause &&
+        typeof error.cause.code === "string"
+          ? error.cause.code
+          : "RESEND_NETWORK_ERROR";
+      smtpFailure = new InquiryEmailError("delivery", code);
+    }
+  }
+
+  if (smtpFailure) throw smtpFailure;
+  if (!user) {
+    throw new InquiryEmailError(
+      "configuration",
+      undefined,
+      "SMTP_USER or GMAIL_USER",
+    );
+  }
+  if (!pass) {
+    throw new InquiryEmailError(
+      "configuration",
+      undefined,
+      "SMTP_PASS or GMAIL_APP_PASSWORD",
+    );
+  }
+  throw new InquiryEmailError(
+    "configuration",
+    undefined,
+    "RESEND_API_KEY (fallback) or valid Gmail SMTP settings",
+  );
 }
