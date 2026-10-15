@@ -32,7 +32,7 @@ function escapeHtml(value: string): string {
 }
 
 export async function sendInquiryEmail(inquiry: InquiryEmail): Promise<void> {
-  const host = process.env.SMTP_HOST?.trim() || "smtp.gmail.com";
+  const host = process.env.SMTP_HOST?.trim() || "mail.privateemail.com";
   const portValue = process.env.SMTP_PORT?.trim() || "465";
   const user = process.env.SMTP_USER?.trim() || process.env.GMAIL_USER?.trim();
   const rawPass =
