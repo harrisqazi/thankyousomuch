@@ -31,23 +31,17 @@ function escapeHtml(value: string): string {
     .replaceAll("'", "&#39;");
 }
 
-function requiredSetting(name: string): string {
-  const value = process.env[name]?.trim();
-  if (!value) {
-    throw new InquiryEmailError("configuration", undefined, name);
-  }
-  return value;
-}
-
 export async function sendInquiryEmail(inquiry: InquiryEmail): Promise<void> {
   const host = process.env.SMTP_HOST?.trim() || "smtp.gmail.com";
   const portValue = process.env.SMTP_PORT?.trim() || "465";
   const user = process.env.SMTP_USER?.trim() || process.env.GMAIL_USER?.trim();
   const rawPass =
     process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD || "";
-  // Gmail displays App Passwords in groups separated by spaces; accept either
-  // the grouped display form or the compact value used by SMTP.
-  const pass = rawPass.replace(/\s+/g, "");
+  // Only Gmail App Passwords use display spaces. Other providers' passwords
+  // must be passed through unchanged.
+  const pass = host.toLowerCase() === "smtp.gmail.com"
+    ? rawPass.replace(/\s+/g, "")
+    : rawPass;
   const from = process.env.SMTP_FROM?.trim() || user;
   const to =
     process.env.LEAD_TO_EMAIL?.trim() ||
