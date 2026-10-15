@@ -5,6 +5,7 @@ import { Check, X } from 'lucide-react';
 import { useHealthCheck, useSendInquiry } from '@workspace/api-client-react';
 import { CUSTOM_PRODUCT, PRODUCTS, type ProductId } from '@workspace/api-zod';
 import { MenuSection } from './components/MenuSection';
+import { HeroIntro } from './components/HeroIntro';
 
 const queryClient = new QueryClient();
 
@@ -256,12 +257,7 @@ function Home() {
           <h1 className="display hero-title reveal max-w-[1120px] uppercase text-[#6EB2FF]" data-testid="text-hero-headline">
             YOU DO GREAT WORK.<br className="hidden md:block" /> WE HANDLE THE FOLLOW-UP.
           </h1>
-          <p className="reveal reveal-delay-1 mt-4 max-w-[760px] text-[.98rem] font-semibold leading-relaxed sm:mt-5 sm:text-lg">
-            Missed calls. New inquiries. Unanswered quotes. You focus on what you do best, we take care of the follow-up.
-          </p>
-          <p className="reveal reveal-delay-2 mt-2 max-w-[760px] text-base font-bold leading-relaxed sm:mt-3 sm:text-lg">
-            Have your customers saying, “Thank you so much.”
-          </p>
+          <HeroIntro />
           <div className="absolute bottom-0 left-5 right-5 border-t border-[#161616]/20 sm:left-9 sm:right-9 lg:left-14 lg:right-14" />
         </section>
 
