@@ -4,11 +4,15 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "inquiries:export": "tsx ./src/export-inquiries.ts",
     "hello": "tsx ./src/hello.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
     "@types/node": "catalog:",
     "tsx": "catalog:"
+  },
+  "dependencies": {
+    "@vercel/blob": "^2.8.2"
   }
 }

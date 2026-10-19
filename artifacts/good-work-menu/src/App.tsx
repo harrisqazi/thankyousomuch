@@ -71,6 +71,7 @@ function InquiryDialog({
     : PRODUCTS.find((item) => item.id === serviceId);
   const [fields, setFields] = useState<InquiryFields>(emptyFields);
   const [accepted, setAccepted] = useState(false);
+  const [emailDelayed, setEmailDelayed] = useState(false);
   const [formError, setFormError] = useState('');
   const firstFieldRef = useRef<HTMLInputElement>(null);
   const sendInquiry = useSendInquiry();
@@ -79,6 +80,7 @@ function InquiryDialog({
     if (open) {
       setFields(emptyFields);
       setAccepted(false);
+      setEmailDelayed(false);
       setFormError('');
       sendInquiry.reset();
     }
@@ -107,6 +109,7 @@ function InquiryDialog({
         },
       });
       if (result.accepted) {
+        setEmailDelayed(result.emailStatus === 'failed');
         setAccepted(true);
       } else {
         setFormError('We couldn’t confirm your message was delivered. Please try again.');
@@ -139,7 +142,9 @@ function InquiryDialog({
               </DialogPrimitive.Title>
               <DialogPrimitive.Description id="inquiry-description" className="mt-2 max-w-[38ch] text-sm leading-relaxed text-[#161616]/70">
                 {accepted
-                  ? "We got your message. We'll be in touch."
+                  ? emailDelayed
+                    ? "Your message is safely saved. The email notification was delayed, so there's no need to submit it again."
+                    : "Your message is safely saved and our team has been notified. We'll be in touch."
                   : 'Tell us a little about your business. A real person will follow up.'}
               </DialogPrimitive.Description>
             </div>
@@ -315,7 +320,7 @@ function Home() {
             <p className="mono text-[.58rem] text-[#161616]/65">An expert in enterprise AI.</p>
           </div>
         </div>
-        <p id="privacy" className="mt-4 max-w-[72ch] text-[.7rem] leading-relaxed text-[#161616]/65">We use the details you share only to respond to your inquiry. We don’t sell your information.</p>
+        <p id="privacy" className="mt-4 max-w-[72ch] text-[.7rem] leading-relaxed text-[#161616]/65">We privately store your inquiry and email it to our team so we can respond, even if email is unavailable. We don’t sell your information.</p>
         <p className="mono mt-5 text-[.58rem] uppercase tracking-[.08em] text-[#161616]/55" aria-live="polite" data-testid="status-api-process">
           {health.isLoading ? 'API process: checking' : health.error ? 'API process: unavailable' : `API process: ${health.data?.status ?? 'unknown'}`}
         </p>

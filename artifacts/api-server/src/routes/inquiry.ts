@@ -11,6 +11,7 @@ import {
   InquiryEmailError,
   sendInquiryEmail,
 } from "../lib/inquiry-email";
+import { createInquiryBackup, saveInquiryBackup } from "../lib/inquiry-backup";
 
 const router: IRouter = Router();
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
@@ -92,8 +93,7 @@ router.post("/inquiry", inquiryRateLimit, async (req, res): Promise<void> => {
       ? "Custom quote"
       : `${formatUsd(product.setupPrice)} one-time setup`;
 
-  try {
-    await sendInquiryEmail({
+  const inquiry = createInquiryBackup({
       productName: product.name,
       monthlyPrice,
       setupPrice,
@@ -102,9 +102,23 @@ router.post("/inquiry", inquiryRateLimit, async (req, res): Promise<void> => {
       email,
       phone: singleLine(input.phone),
       message: input.message.replace(/\u0000/g, "").trim(),
+    }, product.id);
+
+  try {
+    await saveInquiryBackup(inquiry);
+  } catch {
+    req.log.error({ inquiryId: inquiry.id }, "Inquiry JSON backup failed");
+    res.status(503).json({
+      error: "We couldn't save your message. It has not been submitted. Please try again.",
     });
-    res.status(202).json(SendInquiryResponse.parse({ accepted: true }));
+    return;
+  }
+
+  try {
+    await sendInquiryEmail(inquiry);
+    inquiry.emailNotification.status = "accepted";
   } catch (error) {
+    inquiry.emailNotification.status = "failed";
     if (error instanceof InquiryEmailError) {
       req.log.error(
         {
@@ -117,11 +131,20 @@ router.post("/inquiry", inquiryRateLimit, async (req, res): Promise<void> => {
     } else {
       req.log.error("Inquiry email delivery failed");
     }
-    res.status(503).json({
-      error:
-        "We couldn't send your message. It has not been submitted. Please try again.",
-    });
   }
+  inquiry.emailNotification.updatedAt = new Date().toISOString();
+  try {
+    await saveInquiryBackup(inquiry, true);
+  } catch {
+    // The initial immutable lead data is already durable. Never ask a visitor
+    // to resubmit merely because the notification-status update failed.
+    req.log.error({ inquiryId: inquiry.id }, "Inquiry notification status backup failed");
+  }
+  res.status(202).json(SendInquiryResponse.parse({
+    accepted: true,
+    referenceId: inquiry.id,
+    emailStatus: inquiry.emailNotification.status,
+  }));
 });
 
 export default router;

@@ -139,7 +139,7 @@ export const getSendInquiryUrl = () => {
 }
 
 /**
- * Validates and emails a new inquiry. Prices are resolved from the server's service catalog.
+ * Saves a new inquiry as private durable JSON, then emails a notification. Prices are resolved from the server's service catalog.
  * @summary Send a sales inquiry
  */
 export const sendInquiry = async (inquiryInput: InquiryInput, options?: Parameters<typeof customFetch>[1]): Promise<InquiryResponse> => {

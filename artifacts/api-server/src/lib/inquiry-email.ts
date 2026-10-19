@@ -1,4 +1,5 @@
 import { createTransport } from "nodemailer";
+import { inquiryRecipient } from "./inquiry-backup";
 
 export type InquiryEmail = {
   productName: string;
@@ -34,20 +35,21 @@ function escapeHtml(value: string): string {
 export async function sendInquiryEmail(inquiry: InquiryEmail): Promise<void> {
   const host = process.env.SMTP_HOST?.trim() || "mail.privateemail.com";
   const portValue = process.env.SMTP_PORT?.trim() || "465";
-  const user = process.env.SMTP_USER?.trim() || process.env.GMAIL_USER?.trim();
+  const tysmPassword = process.env.TYSM_SMTP_PASSWORD;
+  const user = tysmPassword
+    ? "admin@thankyousomuch.ai"
+    : process.env.SMTP_USER?.trim() || process.env.GMAIL_USER?.trim();
   const rawPass =
-    process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD || "";
+    tysmPassword || process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD || "";
   // Only Gmail App Passwords use display spaces. Other providers' passwords
   // must be passed through unchanged.
   const pass = host.toLowerCase() === "smtp.gmail.com"
     ? rawPass.replace(/\s+/g, "")
     : rawPass;
-  const from = process.env.SMTP_FROM?.trim() || user;
-  const to =
-    process.env.LEAD_TO_EMAIL?.trim() ||
-    process.env.NOTIFY_EMAIL?.trim() ||
-    process.env.ADMIN_EMAIL?.trim() ||
-    "admin@pooly.org";
+  const from = tysmPassword
+    ? "TYSM <admin@thankyousomuch.ai>"
+    : process.env.SMTP_FROM?.trim() || user;
+  const to = inquiryRecipient();
   const resendApiKey = process.env.RESEND_API_KEY?.trim();
   const port = Number(portValue);
 
@@ -76,7 +78,7 @@ export async function sendInquiryEmail(inquiry: InquiryEmail): Promise<void> {
         `<tr><th align="left" valign="top" style="padding:10px 16px 10px 0;color:#8a3a36;font-weight:600;border-bottom:1px dotted #d8b9a7">${escapeHtml(label)}</th><td style="padding:10px 0;border-bottom:1px dotted #d8b9a7;white-space:pre-wrap">${escapeHtml(value)}</td></tr>`,
     )
     .join("");
-  const html = `<!doctype html><html><body style="margin:0;padding:32px;background:#fff7ec;color:#161616;font-family:Arial,sans-serif"><main style="max-width:640px;margin:0 auto"><p style="margin:0 0 8px;color:#cd1725;font-size:12px;font-weight:bold;letter-spacing:2px">GOOD WORK. · NEW INQUIRY</p><h1 style="margin:0 0 24px;color:#cd1725;font-size:28px">${escapeHtml(subject)}</h1><table style="width:100%;border-collapse:collapse;font-size:15px">${htmlRows}</table></main></body></html>`;
+  const html = `<!doctype html><html><body style="margin:0;padding:32px;background:#fff7ec;color:#161616;font-family:Arial,sans-serif"><main style="max-width:640px;margin:0 auto"><p style="margin:0 0 8px;color:#cd1725;font-size:12px;font-weight:bold;letter-spacing:2px">THANK YOU SO MUCH. · NEW INQUIRY</p><h1 style="margin:0 0 24px;color:#cd1725;font-size:28px">${escapeHtml(subject)}</h1><table style="width:100%;border-collapse:collapse;font-size:15px">${htmlRows}</table></main></body></html>`;
 
   let smtpFailure: InquiryEmailError | undefined;
 

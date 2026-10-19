@@ -31,7 +31,7 @@ paths:
       operationId: sendInquiry
       tags: [inquiries]
       summary: Send a sales inquiry
-      description: Validates and emails a new inquiry. Prices are resolved from the server's service catalog.
+      description: Saves a new inquiry as private durable JSON, then emails a notification. Prices are resolved from the server's service catalog.
       requestBody:
         required: true
         content:
@@ -40,7 +40,7 @@ paths:
               $ref: "#/components/schemas/InquiryInput"
       responses:
         "202":
-          description: The SMTP server accepted the message.
+          description: The inquiry is durably saved. Email notification status is included.
           content:
             application/json:
               schema:
@@ -50,7 +50,7 @@ paths:
         "429":
           description: Too many inquiries were submitted.
         "503":
-          description: Email delivery is unavailable or failed.
+          description: The inquiry could not be durably saved. The visitor should retry.
 components:
   schemas:
     HealthStatus:
@@ -106,6 +106,14 @@ components:
       properties:
         accepted:
           type: boolean
+        referenceId:
+          type: string
+          format: uuid
+        emailStatus:
+          type: string
+          enum: [accepted, failed]
       required:
         - accepted
+        - referenceId
+        - emailStatus
 

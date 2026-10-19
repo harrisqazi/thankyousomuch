@@ -10,3 +10,4 @@ export * from './healthStatus';
 export * from './inquiryInput';
 export * from './inquiryInputServiceId';
 export * from './inquiryResponse';
+export * from './inquiryResponseEmailStatus';

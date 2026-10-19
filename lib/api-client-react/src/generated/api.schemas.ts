@@ -42,7 +42,17 @@ export interface InquiryInput {
   website: string;
 }
 
+export type InquiryResponseEmailStatus = typeof InquiryResponseEmailStatus[keyof typeof InquiryResponseEmailStatus];
+
+
+export const InquiryResponseEmailStatus = {
+  accepted: 'accepted',
+  failed: 'failed',
+} as const;
+
 export interface InquiryResponse {
   accepted: boolean;
+  referenceId: string;
+  emailStatus: InquiryResponseEmailStatus;
 }
 

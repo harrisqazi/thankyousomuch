@@ -5,7 +5,10 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { InquiryResponseEmailStatus } from './inquiryResponseEmailStatus';
 
 export interface InquiryResponse {
   accepted: boolean;
+  referenceId: string;
+  emailStatus: InquiryResponseEmailStatus;
 }

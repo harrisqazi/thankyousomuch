@@ -18,7 +18,7 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
- * Validates and emails a new inquiry. Prices are resolved from the server's service catalog.
+ * Saves a new inquiry as private durable JSON, then emails a notification. Prices are resolved from the server's service catalog.
  * @summary Send a sales inquiry
  */
 export const sendInquiryBodyNameMax = 100;
@@ -46,7 +46,9 @@ export const SendInquiryBody = zod.object({
 })
 
 export const SendInquiryResponse = zod.object({
-  "accepted": zod.boolean()
+  "accepted": zod.boolean(),
+  "referenceId": zod.string().uuid(),
+  "emailStatus": zod.enum(['accepted', 'failed'])
 })
 
 
