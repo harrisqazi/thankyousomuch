@@ -253,15 +253,33 @@ function Home() {
       </header>
 
       <main id="top">
-        <section className="relative mx-auto max-w-[1440px] px-5 pb-7 pt-8 sm:px-9 sm:pb-9 sm:pt-10 lg:px-14">
-          <h1 className="display hero-title reveal max-w-[1120px] uppercase text-[#6EB2FF]" data-testid="text-hero-headline">
-            YOU DO GREAT WORK.<br className="hidden md:block" /> WE HANDLE THE FOLLOW-UP.
-          </h1>
-          <HeroIntro />
-          <div className="absolute bottom-0 left-5 right-5 border-t border-[#161616]/20 sm:left-9 sm:right-9 lg:left-14 lg:right-14" />
+        <section className="relative overflow-hidden bg-[#cd1725] text-white" aria-labelledby="custom-ai-heading">
+          <div className="mx-auto max-w-[1440px] px-5 py-12 sm:px-9 sm:py-16 lg:px-14 lg:py-20">
+            <h1 id="custom-ai-heading" className="display text-[clamp(1.7rem,5.4vw,5rem)] leading-[.98] tracking-[-.05em]">
+              NEED CUSTOM AI FOR
+            </h1>
+            <div className="rotator-window display mt-2 text-[clamp(1.35rem,4.2vw,3.1rem)] leading-[1.12]" aria-label={rotatingLines.join(' ')}>
+              <div className="rotator-track" aria-hidden="true">
+                {[...rotatingLines, rotatingLines[0]].map((line, index) => (
+                  <div className="rotator-line" key={`${line}-${index}`}>{line}</div>
+                ))}
+              </div>
+            </div>
+            <p className="mt-5 max-w-[45ch] text-base font-semibold leading-relaxed text-white/90 sm:text-lg">Tell us what's slowing your business down. We'll figure it out together.</p>
+            <button onClick={() => openInquiry(CUSTOM_PRODUCT.id)} className="primary-button custom-ai-button mt-6 inline-flex min-h-[54px] items-center gap-3 bg-[#176b45] px-6 text-sm font-extrabold text-white sm:px-8" data-testid="button-custom-ai-inquiry">
+              MESSAGE US ↗
+            </button>
+          </div>
         </section>
 
         <MenuSection onSelectService={openInquiry} />
+
+        <section className="relative mx-auto max-w-[1440px] px-5 pb-8 pt-10 sm:px-9 sm:pb-10 sm:pt-14 lg:px-14" aria-labelledby="follow-up-heading">
+          <h2 id="follow-up-heading" className="display hero-title reveal max-w-[1120px] uppercase text-[#6EB2FF]" data-testid="text-hero-headline">
+            YOU DO GREAT WORK.<br className="hidden md:block" /> WE HANDLE THE FOLLOW-UP.
+          </h2>
+          <HeroIntro />
+        </section>
 
         <section className="mx-auto max-w-[1440px] px-5 pb-12 sm:px-9 sm:pb-16 lg:px-14">
           <div className="flex flex-col items-center gap-5 border-2 border-[#161616] bg-[#ffda43] px-5 py-7 text-center sm:flex-row sm:gap-8 sm:px-9 sm:py-8 sm:text-left lg:px-12">
@@ -276,24 +294,12 @@ function Home() {
           </div>
         </section>
 
-        <section className="relative overflow-hidden bg-[#cd1725] text-white">
-          <div className="mx-auto grid max-w-[1440px] gap-8 px-5 py-12 sm:px-9 sm:py-16 lg:items-center lg:px-14 lg:py-20">
-            <div className="relative z-[1]">
-              <h2 className="display text-[clamp(1.7rem,5.4vw,5rem)] leading-[.98] tracking-[-.05em]">
-                NEED CUSTOM AI FOR
-              </h2>
-              <div className="rotator-window display mt-2 text-[clamp(1.35rem,4.2vw,3.1rem)] leading-[1.12]" aria-label={rotatingLines.join(' ')}>
-                <div className="rotator-track" aria-hidden="true">
-                  {[...rotatingLines, rotatingLines[0]].map((line, index) => (
-                    <div className="rotator-line" key={`${line}-${index}`}>{line}</div>
-                  ))}
-                </div>
-              </div>
-              <p className="mt-5 max-w-[45ch] text-base font-semibold leading-relaxed text-white/90 sm:text-lg">Tell us what's slowing your business down. We'll figure it out together.</p>
-              <button onClick={() => openInquiry(CUSTOM_PRODUCT.id)} className="primary-button custom-ai-button mt-6 inline-flex min-h-[54px] items-center gap-3 bg-[#176b45] px-6 text-sm font-extrabold text-white sm:px-8" data-testid="button-custom-ai-inquiry">
-                MESSAGE US ↗
-              </button>
-            </div>
+        <section className="w-full bg-[#cd1725] text-white" aria-label="Recover your leads">
+          <div className="mx-auto flex max-w-[1440px] flex-col items-start justify-between gap-6 px-5 py-10 sm:flex-row sm:items-center sm:px-9 sm:py-12 lg:px-14">
+            <p className="display text-3xl uppercase leading-tight sm:text-4xl">DON’T LET THE NEXT LEAD GET AWAY.</p>
+            <button onClick={() => openInquiry(CUSTOM_PRODUCT.id)} className="primary-button custom-ai-button inline-flex min-h-[54px] shrink-0 items-center gap-3 bg-[#176b45] px-6 text-sm font-extrabold text-white sm:px-8" data-testid="button-recover-leads">
+              Recover my leads ↗
+            </button>
           </div>
         </section>
       </main>
