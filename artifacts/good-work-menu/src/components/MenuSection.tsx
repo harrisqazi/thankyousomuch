@@ -24,7 +24,7 @@ function LineIllustration({ kind }: { kind: (typeof PRODUCTS)[number]["icon"] })
 
 export function MenuSection({ onSelectService }: { onSelectService: (id: ProductId) => void }) {
   return (
-    <section id="menu" className="relative z-[21] w-full scroll-mt-6 border-t-2 border-white bg-[#cd1725] text-white">
+    <section id="menu" className="relative z-[21] w-full scroll-mt-6 border-t border-white/65 bg-[#cd1725] text-white">
       <div className="mx-auto max-w-[1440px] px-5 pb-8 pt-5 sm:px-9 sm:pb-12 sm:pt-7 lg:px-14 lg:pb-14 lg:pt-8">
         <div className="mb-5 flex flex-col justify-between gap-2 sm:mb-7 sm:flex-row sm:items-end">
           <div>
