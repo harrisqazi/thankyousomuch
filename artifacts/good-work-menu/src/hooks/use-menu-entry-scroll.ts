@@ -2,18 +2,17 @@ import { useEffect, useRef } from 'react';
 
 const INTERACTIVE = 'a, button, input, textarea, select, [contenteditable="true"], [role="dialog"], [role="button"]';
 
-/** One introductory snap, then ordinary scrolling for the rest of the visit. */
+/** Stop at the menu on entry and on return, then release the next gesture. */
 export function useMenuEntryScroll(dialogOpen: boolean) {
-  const completed = useRef(false);
+  const introHandled = useRef(false);
 
   useEffect(() => {
-    if (completed.current || dialogOpen) return;
+    if (dialogOpen) return;
     const menu = document.getElementById('menu');
     if (!menu) return;
     // Preserve deep links, restored positions, and browser back navigation.
     if (window.location.hash || window.scrollY > 8) {
-      completed.current = true;
-      return;
+      introHandled.current = true;
     }
 
     let snapping = false;
@@ -23,24 +22,39 @@ export function useMenuEntryScroll(dialogOpen: boolean) {
     let touchY: number | undefined;
     let touchX: number | undefined;
     const root = document.documentElement;
+    const targetTop = () => window.scrollY + menu.getBoundingClientRect().top;
+    let previousY = window.scrollY;
+    let armedSide: 'above' | 'below' | null = window.scrollY > targetTop() + 80
+      ? 'below' : window.scrollY < targetTop() - 80 ? 'above' : null;
     const interactive = (target: EventTarget | null) =>
       target instanceof Element && Boolean(target.closest(INTERACTIVE));
     const finish = () => {
       if (!snapping) return;
       snapping = false;
-      completed.current = true;
+      introHandled.current = true;
+      armedSide = null;
+      previousY = window.scrollY;
       root.classList.remove('menu-entry-snapping');
       cancelAnimationFrame(frame);
     };
-    const targetTop = () => window.scrollY + menu.getBoundingClientRect().top;
     const noteInput = () => { lastInput = performance.now(); };
+    const approachingMenu = (delta: number) => {
+      const y = window.scrollY;
+      const top = targetTop();
+      if (!introHandled.current && y < top && delta > 0) return true;
+      // Rearm only after leaving the menu, never while trying to leave it.
+      if (y > top + 80) armedSide = 'below';
+      else if (y < top - 80) armedSide = 'above';
+      return (armedSide === 'below' && delta < 0 && y > top + 2 && y + delta <= top + 100)
+        || (armedSide === 'above' && delta > 0 && y < top - 2 && y + delta >= top - 100);
+    };
     const snap = () => {
-      if (completed.current || snapping) return;
+      if (snapping) return;
       snapping = true;
       noteInput();
       const start = window.scrollY;
       const startedAt = performance.now();
-      const duration = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 550;
+      const duration = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 450;
       root.classList.add('menu-entry-snapping');
       // Own the initial gesture instead of trusting scrollend/native momentum.
       // Continue pinning the exact target until the gesture has gone quiet.
@@ -49,8 +63,8 @@ export function useMenuEntryScroll(dialogOpen: boolean) {
         const progress = duration ? Math.min(1, (now - startedAt) / duration) : 1;
         const eased = 1 - Math.pow(1 - progress, 3);
         window.scrollTo({ top: start + (targetTop() - start) * eased, behavior: 'instant' });
-        if (progress === 1 && !fingerDown && now - lastInput >= 280
-          && now - startedAt >= duration + 180) {
+        if (progress === 1 && !fingerDown && now - lastInput >= 140
+          && now - startedAt >= duration + 60) {
           finish();
           return;
         }
@@ -59,8 +73,9 @@ export function useMenuEntryScroll(dialogOpen: boolean) {
       frame = requestAnimationFrame(tick);
     };
     const onWheel = (event: WheelEvent) => {
-      if (completed.current || event.ctrlKey) return;
-      if (snapping || (event.deltaY > 0 && Math.abs(event.deltaY) > Math.abs(event.deltaX))) {
+      if (event.ctrlKey) return;
+      const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? window.innerHeight : 1);
+      if (snapping || (Math.abs(event.deltaY) > Math.abs(event.deltaX) && approachingMenu(delta))) {
         event.preventDefault();
         noteInput();
         snap();
@@ -73,10 +88,12 @@ export function useMenuEntryScroll(dialogOpen: boolean) {
       if (snapping) noteInput();
     };
     const onTouchMove = (event: TouchEvent) => {
-      if (completed.current || event.touches.length !== 1) return;
+      if (event.touches.length !== 1) return;
       const dy = touchY === undefined ? 0 : touchY - event.touches[0].clientY;
       const dx = touchX === undefined ? 0 : touchX - event.touches[0].clientX;
-      if (snapping || (dy > 8 && Math.abs(dy) > Math.abs(dx))) {
+      touchY = event.touches[0].clientY;
+      touchX = event.touches[0].clientX;
+      if (snapping || (Math.abs(dy) > 8 && Math.abs(dy) > Math.abs(dx) && approachingMenu(dy))) {
         event.preventDefault();
         noteInput();
         snap();
@@ -87,21 +104,35 @@ export function useMenuEntryScroll(dialogOpen: boolean) {
       if (snapping) noteInput();
     };
     const onKey = (event: KeyboardEvent) => {
-      if (completed.current || event.defaultPrevented || event.ctrlKey || event.altKey
-        || event.metaKey || event.shiftKey || interactive(event.target)) return;
-      if (['ArrowDown', 'PageDown', ' ', 'End'].includes(event.key)) {
+      if (event.defaultPrevented || event.ctrlKey || event.altKey
+        || event.metaKey || interactive(event.target)) return;
+      const delta = event.key === 'End' ? document.documentElement.scrollHeight
+        : event.key === 'Home' ? -document.documentElement.scrollHeight
+        : event.key === 'ArrowDown' ? 40 : event.key === 'ArrowUp' ? -40
+        : event.key === 'PageDown' ? window.innerHeight : event.key === 'PageUp' ? -window.innerHeight
+        : event.key === ' ' ? window.innerHeight * (event.shiftKey ? -1 : 1) : 0;
+      if (delta && (snapping || approachingMenu(delta))) {
         event.preventDefault();
         noteInput();
         snap();
       }
     };
     const onClick = (event: MouseEvent) => {
-      if (event.button !== 0 || completed.current || interactive(event.target)
+      if (event.button !== 0 || introHandled.current || interactive(event.target)
         || window.getSelection()?.toString()) return;
       snap();
     };
     const onScroll = () => {
-      if (!completed.current && !snapping && window.scrollY > 8) snap();
+      const y = window.scrollY;
+      const top = targetTop();
+      if (!snapping) {
+        const crossedFromBelow = armedSide === 'below' && previousY > top + 2 && y <= top + 2;
+        const crossedFromAbove = armedSide === 'above' && previousY < top - 2 && y >= top - 2;
+        if ((!introHandled.current && y > 8) || crossedFromBelow || crossedFromAbove) snap();
+        else if (y > top + 80) armedSide = 'below';
+        else if (y < top - 80) armedSide = 'above';
+      }
+      previousY = y;
     };
     window.addEventListener('wheel', onWheel, { passive: false });
     window.addEventListener('touchstart', onTouchStart, { passive: true });
@@ -115,7 +146,7 @@ export function useMenuEntryScroll(dialogOpen: boolean) {
       cancelAnimationFrame(frame);
       root.classList.remove('menu-entry-snapping');
       // Opening the inquiry during a snap must not re-arm it on close.
-      if (snapping) completed.current = true;
+      if (snapping) introHandled.current = true;
       window.removeEventListener('wheel', onWheel);
       window.removeEventListener('touchstart', onTouchStart);
       window.removeEventListener('touchmove', onTouchMove);
