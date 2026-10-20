@@ -24,37 +24,37 @@ function LineIllustration({ kind }: { kind: (typeof PRODUCTS)[number]["icon"] })
 
 export function MenuSection({ onSelectService }: { onSelectService: (id: ProductId) => void }) {
   return (
-    <section id="menu" className="relative z-[21] w-full scroll-mt-6 bg-[#F5F8F7]">
+    <section id="menu" className="relative z-[21] w-full scroll-mt-6 bg-[#cd1725] text-white">
       <div className="mx-auto max-w-[1440px] px-5 py-8 sm:px-9 sm:py-12 lg:px-14 lg:py-14">
         <div className="mb-5 flex flex-col justify-between gap-2 sm:mb-7 sm:flex-row sm:items-end">
           <div>
             <h2 className="display text-4xl leading-[1.04] sm:text-5xl">MENU.</h2>
-            <p className="mono mt-2 text-[.68rem] font-medium uppercase tracking-[.17em] text-[#cd1725]">GREAT SERVICE. SIMPLE PRICES.</p>
+            <p className="mono mt-2 text-[.68rem] font-medium uppercase tracking-[.17em] text-white">GREAT SERVICE. SIMPLE PRICES.</p>
           </div>
         </div>
-        <div className="border-t-2 border-[#161616]" role="group" aria-label="Follow-up services">
+        <div className="border-t-2 border-white" role="group" aria-label="Follow-up services">
           {PRODUCTS.map((product) => (
             <button
               key={product.id}
               type="button"
               onClick={() => onSelectService(product.id)}
-              className="service-button group w-full border-b border-[#161616]/30 py-4 text-left sm:py-5"
+              className="service-button group w-full border-b border-white/40 py-4 text-left sm:py-5"
               data-testid={`button-service-${product.id}`}
             >
               <span className="service-row">
-                <span className="mono text-[.7rem] tracking-[.13em] text-[#cd1725]">{product.number}</span>
+                <span className="mono text-[.7rem] tracking-[.13em] text-white">{product.number}</span>
                 <span className="service-icon" aria-hidden="true"><LineIllustration kind={product.icon} /></span>
                 <span className="service-title-wrap min-w-0">
                   <span className="display block text-[1.2rem] leading-tight sm:text-[1.45rem] lg:text-[1.65rem]">{product.name}</span>
-                  <span className="service-copy mt-1 block text-[.78rem] font-semibold leading-snug text-[#161616]/70 sm:text-sm">{product.description}</span>
+                  <span className="service-copy mt-1 block text-[.78rem] font-semibold leading-snug text-white sm:text-sm">{product.description}</span>
                 </span>
                 <span className="dot-leader" aria-hidden="true" />
                 <span className="service-price display whitespace-nowrap text-[1.05rem] sm:text-[1.3rem]">{formatUsd(product.monthlyPrice)}<span className="mono text-[.67rem] font-normal">/month</span></span>
-                <span className="service-arrow flex h-9 w-9 items-center justify-center rounded-full border border-[#161616]/30 transition-colors group-hover:border-[#cd1725] group-hover:bg-[#cd1725] group-hover:text-white">
+                <span className="service-arrow flex h-9 w-9 items-center justify-center rounded-full border border-white/60 transition-colors group-hover:border-white group-hover:bg-white group-hover:text-[#cd1725]">
                   <ArrowUpRight size={17} />
                 </span>
               </span>
-              <span className="mono mt-2 block pl-[5rem] text-[.61rem] uppercase tracking-[.1em] text-[#161616]/70 sm:pl-[6.7rem]">One-time setup {formatUsd(product.setupPrice)}</span>
+              <span className="mono mt-2 block pl-[5rem] text-[.61rem] uppercase tracking-[.1em] text-white sm:pl-[6.7rem]">One-time setup {formatUsd(product.setupPrice)}</span>
             </button>
           ))}
         </div>

@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import { readFile } from "node:fs/promises";
 import { get, put } from "@vercel/blob";
 import { processQueue, strongETag } from "./scheduler.mjs";
 import { createSentArchive, sendMailAndArchive } from "../../artifacts/api-server/src/lib/sent-mail.mjs";
@@ -14,6 +15,12 @@ const stored = await get(pathname, { access: "private", useCache: false });
 if (!stored || stored.statusCode !== 200) throw new Error("Private campaign queue unavailable");
 let etag = strongETag(stored.blob.etag);
 const queue = JSON.parse(await new Response(stored.stream).text());
+// Only unsent contacts use the latest approved copy. Accepted/ambiguous
+// deliveries retain their original record and are never resent.
+const approvedText = (await readFile(new URL("./email-copy.txt", import.meta.url), "utf8")).trim() + "\n";
+for (const recipient of queue.recipients) {
+  if (recipient.status === "pending") recipient.text = approvedText;
+}
 
 const transport = nodemailer.createTransport({
   host: "mail.privateemail.com",
