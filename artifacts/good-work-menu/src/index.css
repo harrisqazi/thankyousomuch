@@ -121,7 +121,12 @@ html.menu-entry-snapping #menu { scroll-snap-align:start; scroll-margin-top:0; }
 .service-icon svg { width:100%; height:100%; }
 .dot-leader { flex:1; border-bottom:2px dotted rgba(255,255,255,.6); min-width:20px; margin:0 .35rem .36rem; }
 .service-button { transition: background-color .22s ease; }
-.service-button:hover { background:rgba(255,255,255,.1); }
+.service-button:hover { background:#ffda43; color:#161616; }
+#menu .service-button:hover .mono,
+#menu .service-button:hover .service-copy,
+#menu .service-button:hover .service-arrow { color:#161616; }
+#menu .service-button:hover .service-arrow { border-color:rgba(22,22,22,.5); background:transparent; }
+#menu .service-button:hover .dot-leader { border-color:rgba(22,22,22,.4); }
 .service-arrow { transition: transform .22s ease; }
 .service-button:hover .service-arrow { transform:translate(2px,-2px); }
 .service-button:focus-visible, .primary-button:focus-visible, .secondary-button:focus-visible { outline:3px solid #2457ed; outline-offset:4px; }
