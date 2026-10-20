@@ -26,6 +26,9 @@ eligible times, not guaranteed delivery times.
 - Public source and Actions logs contain no contact list or message bodies.
 - Every attempt is saved before SMTP; every acceptance is saved afterward.
 - Accepted contacts are never automatically resent.
+- SMTP-accepted emails are copied to the mailbox's actual Sent folder using
+  IMAP. A Sent-copy failure never causes the email itself to be resent; that
+  status is kept in the private campaign queue for repair.
 - The final batch waits at least 61 minutes after the last first-batch acceptance.
 - Explicit hourly-limit rejections wait another 61 minutes automatically.
 - Ambiguous SMTP outcomes or interrupted attempts stop for human review.

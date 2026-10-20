@@ -99,6 +99,7 @@ export async function processQueue(queue, { save, send, now = Date.now, sleep })
     }
     recipient.status = "accepted";
     recipient.acceptedAt = new Date(now()).toISOString();
+    if (response.sentCopy) recipient.sentCopy = response.sentCopy;
     delete recipient.lastError;
     queue.retryNotBefore = null;
     if (batch === 0 && queue.recipients

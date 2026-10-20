@@ -1,5 +1,7 @@
 import { createTransport } from "nodemailer";
 import { inquiryRecipient } from "./inquiry-backup";
+import { createSentArchive, sendMailAndArchive } from "./sent-mail.mjs";
+import { logger } from "./logger";
 
 export type InquiryEmail = {
   productName: string;
@@ -101,18 +103,25 @@ export async function sendInquiryEmail(inquiry: InquiryEmail): Promise<void> {
         socketTimeout: 20_000,
         tls: { minVersion: "TLSv1.2" },
       });
+      const archive = createSentArchive({ user, password: pass });
 
       try {
-        const result = await transporter.sendMail({
+        const result = await sendMailAndArchive(transporter, {
           from,
           to,
           replyTo: inquiry.email,
           subject,
           text,
           html,
+        }, {
+          archive,
+          onArchiveError: () => logger.warn(
+            { event: "inquiry_sent_copy_failed" },
+            "SMTP accepted inquiry notification, but its Sent copy could not be saved; do not resend",
+          ),
         });
-        const accepted = result.accepted.some(
-          (recipient) => recipient.toLowerCase() === to.toLowerCase(),
+        const accepted = (result.accepted || []).some(
+          (recipient: string) => recipient.toLowerCase() === to.toLowerCase(),
         );
         if (accepted) return;
         smtpFailure = new InquiryEmailError("rejected");
@@ -127,6 +136,7 @@ export async function sendInquiryEmail(inquiry: InquiryEmail): Promise<void> {
         smtpFailure = new InquiryEmailError("delivery", smtpCode);
       } finally {
         transporter.close();
+        await archive.close();
       }
     }
   }

@@ -1,6 +1,7 @@
 import { createRequire } from "node:module";
 import { get, put } from "@vercel/blob";
 import { processQueue, strongETag } from "./scheduler.mjs";
+import { createSentArchive, sendMailAndArchive } from "../../artifacts/api-server/src/lib/sent-mail.mjs";
 
 const require = createRequire(new URL("../../artifacts/api-server/package.json", import.meta.url));
 const nodemailer = require("nodemailer");
@@ -25,6 +26,7 @@ const transport = nodemailer.createTransport({
   logger: false,
   debug: false,
 });
+const archive = createSentArchive();
 
 async function disableFinishedWorkflow() {
   if (!process.env.GITHUB_TOKEN || !process.env.GITHUB_REPOSITORY) return;
@@ -56,7 +58,7 @@ try {
       });
       etag = strongETag(saved.etag);
     },
-    send: recipient => transport.sendMail({
+    send: recipient => sendMailAndArchive(transport, {
       from: { name: "TYSM", address: "admin@thankyousomuch.ai" },
       to: recipient.email,
       replyTo: "admin@thankyousomuch.ai",
@@ -65,6 +67,9 @@ try {
       messageId: recipient.messageId,
       disableFileAccess: true,
       disableUrlAccess: true,
+    }, {
+      archive,
+      onArchiveError: () => console.warn("SMTP accepted email; Sent copy failed. Recipient will not be resent."),
     }),
     sleep: milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds)),
   });
@@ -74,4 +79,5 @@ try {
   if (result.needsReview) throw new Error("Campaign paused for review; no ambiguous delivery will be retried.");
 } finally {
   transport.close();
+  await archive.close();
 }
