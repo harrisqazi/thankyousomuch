@@ -6,6 +6,7 @@ import { useHealthCheck, useSendInquiry } from '@workspace/api-client-react';
 import { CUSTOM_PRODUCT, PRODUCTS, type ProductId } from '@workspace/api-zod';
 import { MenuSection } from './components/MenuSection';
 import { HeroIntro } from './components/HeroIntro';
+import { useMenuEntryScroll } from './hooks/use-menu-entry-scroll';
 
 const queryClient = new QueryClient();
 
@@ -225,6 +226,7 @@ function InquiryDialog({
 
 function Home() {
   const [inquiryOpen, setInquiryOpen] = useState(false);
+  useMenuEntryScroll(inquiryOpen);
   const [selectedService, setSelectedService] = useState<ProductId>(PRODUCTS[0].id);
   const openerRef = useRef<HTMLElement | null>(null);
   const health = useHealthCheck();
