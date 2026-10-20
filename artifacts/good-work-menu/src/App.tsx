@@ -259,7 +259,7 @@ function Home() {
 
       <main id="top">
         <section className="relative overflow-hidden bg-[#cd1725] text-white" aria-labelledby="custom-ai-heading">
-          <div className="mx-auto max-w-[1440px] px-5 py-12 sm:px-9 sm:py-16 lg:px-14 lg:py-20">
+          <div className="mx-auto max-w-[1440px] px-5 pb-8 pt-12 sm:px-9 sm:pb-10 sm:pt-16 lg:px-14 lg:pb-12 lg:pt-20">
             <h1 id="custom-ai-heading" className="display text-[clamp(1.7rem,5.4vw,5rem)] leading-[.98] tracking-[-.05em]">
               NEED CUSTOM AI FOR
             </h1>

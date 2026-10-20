@@ -123,6 +123,7 @@
 .service-arrow { transition: transform .22s ease; }
 .service-button:hover .service-arrow { transform:translate(2px,-2px); }
 .service-button:focus-visible, .primary-button:focus-visible, .secondary-button:focus-visible { outline:3px solid #2457ed; outline-offset:4px; }
+#menu .service-button:focus-visible { outline-color:#fff; outline-offset:-3px; }
 .primary-button { transition:transform .2s ease, background-color .2s ease; }
 .primary-button:hover { transform:translateY(-3px) rotate(-1deg); background:#ffda43; color:#161616; }
 .custom-ai-button:hover { background:#115936; color:#ffffff; }
