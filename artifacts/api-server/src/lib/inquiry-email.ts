@@ -12,6 +12,8 @@ export type InquiryEmail = {
   email: string;
   phone: string;
   message: string;
+  originatingNumber?: string;
+  preferredCallbackNumber?: string;
 };
 
 export class InquiryEmailError extends Error {
@@ -34,7 +36,7 @@ function escapeHtml(value: string): string {
     .replaceAll("'", "&#39;");
 }
 
-export async function sendInquiryEmail(inquiry: InquiryEmail): Promise<void> {
+export async function sendInquiryEmail(inquiry: InquiryEmail, recipientOverride?: string): Promise<void> {
   const host = process.env.SMTP_HOST?.trim() || "mail.privateemail.com";
   const portValue = process.env.SMTP_PORT?.trim() || "465";
   const tysmPassword = process.env.TYSM_SMTP_PASSWORD;
@@ -51,7 +53,7 @@ export async function sendInquiryEmail(inquiry: InquiryEmail): Promise<void> {
   const from = tysmPassword
     ? "TYSM <admin@thankyousomuch.ai>"
     : process.env.SMTP_FROM?.trim() || user;
-  const to = inquiryRecipient();
+  const to = recipientOverride || inquiryRecipient();
   const resendApiKey = process.env.RESEND_API_KEY?.trim();
   const port = Number(portValue);
 
@@ -59,12 +61,14 @@ export async function sendInquiryEmail(inquiry: InquiryEmail): Promise<void> {
   const subject = `NEW LEAD — ${inquiry.productName} — ${subjectBusiness}`;
   const timestamp = new Date().toISOString();
   const rows: Array<[string, string]> = [
+    ...(inquiry.originatingNumber ? [["Originating phone number", inquiry.originatingNumber] as [string, string]] : []),
+    ...(inquiry.preferredCallbackNumber ? [["Preferred callback number", inquiry.preferredCallbackNumber] as [string, string]] : []),
     ["Product selected", inquiry.productName],
     ["Monthly price", inquiry.monthlyPrice],
     ["Setup price", inquiry.setupPrice],
     ["Customer name", inquiry.customerName],
     ["Business", inquiry.businessName],
-    ["Email", inquiry.email],
+    ["Email", inquiry.originatingNumber ? "Not provided by caller" : inquiry.email],
     ["Phone", inquiry.phone || "Not provided"],
     ["Customer message", inquiry.message || "Not provided"],
     ["Submitted", timestamp],

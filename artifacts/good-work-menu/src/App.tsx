@@ -322,6 +322,12 @@ function Home() {
             <p className="mono text-[.58rem] text-[#161616]/65">An expert in enterprise AI.</p>
           </div>
         </div>
+        <div className="mt-6 max-w-xl space-y-2" data-testid="phone-contact">
+          <p className="mono text-xs font-bold uppercase tracking-wide">Contact us</p>
+          <a href="tel:+18597158052" className="display inline-block py-2 text-2xl underline decoration-[#b9dce8] underline-offset-4 sm:text-3xl" data-testid="contact-phone">(859) 715-8052</a>
+          <p className="text-xs leading-relaxed text-[#161616]/65">Call and press 1, or text “hi” to request a callback once the phone demo is activated. The demo is not live yet; activation and carrier approval are pending. For now, use MESSAGE US to reach our team.</p>
+          <p className="text-xs leading-relaxed text-[#161616]/65">When texting is available: message frequency varies. Message and data rates may apply. Reply STOP to opt out or HELP for help. Consent is not a condition of purchase.</p>
+        </div>
         <p id="privacy" className="mt-4 max-w-[72ch] text-[.7rem] leading-relaxed text-[#161616]/65">We privately store your inquiry and email it to our team so we can respond, even if email is unavailable. We don’t sell your information.</p>
         <p className="mono mt-5 text-[.58rem] uppercase tracking-[.08em] text-[#161616]/55" aria-live="polite" data-testid="status-api-process">
           {health.isLoading ? 'API process: checking' : health.error ? 'API process: unavailable' : `API process: ${health.data?.status ?? 'unknown'}`}
