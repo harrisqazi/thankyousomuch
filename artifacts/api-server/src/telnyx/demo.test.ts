@@ -97,6 +97,21 @@ test("only 1 creates consent; requires a matching recent prompt; concurrent retr
   await assert.rejects(recordSelection(store, business, { ...input, Digits: "1" }, new Date(now.getTime() + 31 * 60_000)), /recent/);
 });
 
+test("press 1 confirms only the known number and asks for missing business details", async () => {
+  const store = memoryStore();
+  await consent(store);
+  const sms = Object.values(stateOf(store).jobs).find(job => job.kind === "sms");
+  assert.ok(sms);
+  assert.match(sms.text, /We've saved your number/);
+  assert.match(sms.text, /will call during regular business hours/);
+  assert.match(sms.text, /What's your name and business/);
+  assert.match(sms.text, /helping your business grow/);
+  assert.match(sms.text, /Reply STOP to opt out, HELP for help/);
+  assert.ok(!sms.text.includes("{businessName}"));
+  assert.ok(!sms.text.includes("appointment confirmed"));
+  assert.equal(stateOf(store).consents[key(input.From)].disclosureVersion, "inquiry-sms-v2:tysm-get-started:2");
+});
+
 test("new businesses stay dry-run without individual approval even when global switches are live", async () => {
   const store = memoryStore(); await consent(store);
   await processJobs(store, { ...business, outboundSmsApproved: false }, {
@@ -114,7 +129,7 @@ test("changing a flow during a call does not rewrite its prompt, key, voice, ver
   const before = await incomingCall(store, business, input, now);
   try {
     voiceFlows[business.flowId] = {
-      ...original, version: "2", voice: "man",
+      ...original, version: `${original.version}-changed`, voice: "man",
       greeting: "Changed prompt. Press {consentKey}.",
       introText: "Changed SMS", options: { "2": { action: "consent-and-text" } },
     };
@@ -123,7 +138,8 @@ test("changing a flow during a call does not rewrite its prompt, key, voice, ver
     assert.equal(Object.keys(stateOf(store).jobs).length, 0);
     const response = await recordSelection(store, business, { ...input, Digits: "1" }, now);
     assert.match(response, /voice="woman"/);
-    assert.match(stateOf(store).consents[key(input.From)].disclosureVersion, /:1$/);
+    assert.equal(stateOf(store).consents[key(input.From)].disclosureVersion,
+      `inquiry-sms-v2:${business.flowId}:${original.version}`);
     assert.doesNotMatch(Object.values(stateOf(store).jobs)[0].text, /Changed SMS/);
     const newXml = await incomingCall(store, business, { ...input, CallSid: "new-version" }, now);
     assert.match(newXml, /Changed prompt. Press 2/);

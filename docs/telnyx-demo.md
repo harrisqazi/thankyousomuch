@@ -9,6 +9,10 @@ not automatic detection of missed calls to another business number.
 **Not live yet.** Vercel access and Telnyx API credentials have been verified.
 Messaging approval, keyword configuration, publishing, and a real call/SMS test
 must still be completed. Outbound application SMS remains disabled.
+The first consented SMS confirms that the calling number was saved, asks for the
+caller's name and business, and says the team will call during regular business
+hours. Pressing 1 does not supply a name, book an appointment, or schedule an
+automatic callback. Required SMS rates and STOP/HELP disclosures are appended.
 Do not assign a production number to unverified endpoints. Successful account
 authentication is not proof of access to this Vercel project or its owning team;
 verify project access before changing production configuration.
