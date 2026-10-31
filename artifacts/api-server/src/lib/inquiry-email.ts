@@ -34,7 +34,7 @@ function escapeHtml(value: string): string {
     .replaceAll("'", "&#39;");
 }
 
-export async function sendInquiryEmail(inquiry: InquiryEmail): Promise<void> {
+export async function sendInquiryEmail(inquiry: InquiryEmail, recipientOverride?: string): Promise<void> {
   const host = process.env.SMTP_HOST?.trim() || "mail.privateemail.com";
   const portValue = process.env.SMTP_PORT?.trim() || "465";
   const tysmPassword = process.env.TYSM_SMTP_PASSWORD;
@@ -51,7 +51,7 @@ export async function sendInquiryEmail(inquiry: InquiryEmail): Promise<void> {
   const from = tysmPassword
     ? "TYSM <admin@thankyousomuch.ai>"
     : process.env.SMTP_FROM?.trim() || user;
-  const to = inquiryRecipient();
+  const to = recipientOverride || inquiryRecipient();
   const resendApiKey = process.env.RESEND_API_KEY?.trim();
   const port = Number(portValue);
 

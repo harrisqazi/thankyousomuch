@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "telnyx:migrate": "tsx ../artifacts/api-server/src/telnyx/migrate.ts",
+    "telnyx:jobs": "tsx ../artifacts/api-server/src/telnyx/run-jobs.ts",
+    "telnyx:test": "tsx --test ../artifacts/api-server/src/telnyx/*.test.ts",
+    "phone:check": "tsx ../artifacts/api-server/src/phone-system/check.ts",
     "sent:backfill": "node ./src/backfill-sent.mjs",
     "inquiries:export": "tsx ./src/export-inquiries.ts",
     "hello": "tsx ./src/hello.ts",

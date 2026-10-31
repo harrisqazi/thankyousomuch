@@ -1,5 +1,11 @@
 {
   "installCommand": "pnpm install --frozen-lockfile",
   "buildCommand": "pnpm --filter @workspace/api-server run build && PORT=3000 BASE_PATH=/ pnpm --filter @workspace/good-work-menu run build",
-  "outputDirectory": "artifacts/good-work-menu/dist/public"
+  "outputDirectory": "artifacts/good-work-menu/dist/public",
+  "rewrites": [
+    { "source": "/voice/:path*", "destination": "/api/voice/:path*" },
+    { "source": "/webhooks/telnyx/:path*", "destination": "/api/webhooks/telnyx/:path*" },
+    { "source": "/health", "destination": "/api/health" }
+  ],
+  "functions": { "api/[...path].js": { "maxDuration": 60 } }
 }
