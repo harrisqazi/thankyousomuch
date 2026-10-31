@@ -10,7 +10,10 @@ export async function notify(business: Business, job: Job) {
   await sendInquiryEmail({
     productName: "PHONE / SMS DEMO",
     monthlyPrice: "Not applicable", setupPrice: "Not applicable",
-    customerName: "Phone inquiry", businessName: business.name,
+    customerName: job.lead?.customerName || "Not provided yet",
+    businessName: job.lead?.businessName || "Not provided yet",
+    originatingNumber: job.lead?.originatingNumber || job.caller,
+    preferredCallbackNumber: job.lead?.preferredCallbackNumber || "Not provided yet",
     email: business.recipient, phone: job.caller, message: job.text,
   }, business.recipient);
 }

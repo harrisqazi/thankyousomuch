@@ -2,6 +2,7 @@ import type { Business } from "./config";
 import { enqueue, key, type StateStore } from "./state";
 import { getVoiceFlow, spokenPrompt, fillText, introductoryText, consentVersion, consentDisclosure } from "../phone-system/flows";
 import type { VoiceFlow } from "../phone-system/text-to-speech";
+import { leadSummary, updateLead } from "./lead-details";
 
 export const DISCLOSURE_VERSION = consentVersion;
 export const disclosure = (business: Business) =>
@@ -89,8 +90,13 @@ export async function recordSelection(store: StateStore, business: Business, inp
       };
       // A new call does not silently override a carrier-level STOP.
       enqueue(state, "sms", input.From,
-        introductoryText(business, flow),
+        introductoryText(business, flow, input.From),
         now.toISOString(), key(`intro:${input.CallSid}`));
+      state.leads ||= {};
+      const lead = state.leads[callerKey] ||= { originatingNumber: input.From };
+      const notification = enqueue(state, "email", input.From,
+        `Press-1 phone inquiry\n${leadSummary(lead)}`, now.toISOString(), key(`call-notification:${input.CallSid}`));
+      state.jobs[notification].lead = structuredClone(lead);
     }
     return { flow, message: fillText(state.optOuts[key(input.From)]
       ? flow.optedOutMessage : flow.consentSavedMessage, business, flow) };
@@ -161,14 +167,32 @@ export async function recordMessage(store: StateStore, business: Business, event
       state.messages[messageId] = {
         direction: "inbound", caller, text, at: d.occurred_at, status: "received", helpResponse: help,
       };
+      state.leads ||= {};
+      const existingLead = state.leads[callerKey] || { originatingNumber: caller };
+      const isGreeting = /^(hi|hello|hey)[!. ]*$/i.test(text.trim());
+      const isControl = ["STOP", "STOPALL", "STOP ALL", "UNSUBSCRIBE", "CANCEL", "END", "QUIT", "START", "UNSTOP", "HELP", "INFO"].includes(keyword);
+      const lead = isControl ? existingLead : updateLead(existingLead, text);
+      state.leads[callerKey] = lead;
+      // An inbound greeting authorizes an inquiry response, not a marketing campaign.
+      // A greeting never overrides STOP; only a newer explicit START can unblock.
+      if (isGreeting && !state.optOuts[callerKey]) {
+        state.consents[callerKey] = {
+          caller, called: business.number, callId: p.id, consentedAt: d.occurred_at,
+          disclosure: "Customer initiated an inquiry by SMS; response limited to this inquiry.",
+          disclosureVersion: "inbound-inquiry-v1", action: "inbound-inquiry",
+        };
+        enqueue(state, "sms", caller, introductoryText(business, getVoiceFlow(business.flowId), caller),
+          d.occurred_at, key(`inbound-intro:${p.id}`));
+      }
       if (help && !business.providerManagedHelp) {
         enqueue(state, "sms", caller, help, d.occurred_at, key(`help:${p.id}`));
       }
       // STOP/HELP are also saved and emailed; never expose these in public logs.
-      enqueue(state, "email", caller,
-        `Incoming SMS to ${business.name}\nFrom: ${caller}\nTo: ${business.number}\n`
+      const notification = enqueue(state, "email", caller,
+        `Incoming SMS to ${business.name}\n${leadSummary(lead)}\nTo: ${business.number}\n`
         + `Received: ${d.occurred_at}\nMessage ID: ${p.id}\n\n${text}`,
         d.occurred_at, key(`notification:${p.id}`));
+      state.jobs[notification].lead = structuredClone(lead);
     } else {
       const current = state.messages[messageId];
       const status = typeof p.to[0].status === "string" ? p.to[0].status.slice(0, 100) : "unknown";

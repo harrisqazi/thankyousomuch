@@ -1,3 +1,33 @@
+## Callback inquiry behavior
+
+The website footer links to TYSM's dedicated contact number. Until both production
+activation and carrier approval are verified, it explicitly says the phone demo
+is not live and directs visitors to MESSAGE US.
+
+Callers hear the SMS consent notice, then the configured marketing greeting.
+Only pressing 1 records call consent and queues an introduction. Sending `hi`,
+`hello`, or `hey` to the number instead initiates an inquiry and queues the same
+introduction with that sender's actual number. This is not consent to unrelated
+marketing. STOP takes precedence; a greeting never removes a STOP.
+
+The introduction asks for a labeled reply:
+
+    Name: Jordan Example; Business: Example Plumbing; Callback: (202) 555-0199
+
+Name, business, preferred callback number, and originating phone number are
+separate fields in private state and notification emails. Missing fields are
+marked "Not provided yet", never guessed. Labels can be separated by semicolons,
+commas, or newlines. Unstructured replies are still saved and emailed verbatim
+for a person to review. Invalid callback numbers do not replace a valid one.
+Each email job holds its own details snapshot so later replies cannot change an
+earlier notification. Press-1 inquiries notify the owner even before a reply.
+
+All SMS sends, including inbound-greeting replies, retain the existing global
+and per-business approval switches, opt-out checks, deduplication, and send
+limits. Dry-run jobs are not automatically replayed when messaging is enabled.
+An accepted send is not delivery confirmation. The callback promise requires a
+human to call; this flow does not place or schedule outbound calls.
+
 # Telnyx inquiry recovery demo
 
 ## Status

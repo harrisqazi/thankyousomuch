@@ -5,14 +5,22 @@ export const key = (text: string) => createHash("sha256").update(text).digest("h
 export type Consent = {
   caller: string; called: string; callId: string; consentedAt: string;
   disclosure: string; disclosureVersion: string; revokedAt?: string;
-  flowId?: string; key?: string; action?: "consent-and-text";
+  flowId?: string; key?: string; action?: "consent-and-text" | "inbound-inquiry";
 };
 export type Job = {
   id: string; kind: "sms" | "email"; caller: string; text: string;
   status: "pending" | "processing" | "accepted" | "failed" | "uncertain" | "dry_run" | "suppressed";
   createdAt: string; claimedAt?: string; finishedAt?: string; providerId?: string; error?: string;
+  lead?: LeadDetails;
+};
+export type LeadDetails = {
+  originatingNumber: string;
+  customerName?: string;
+  businessName?: string;
+  preferredCallbackNumber?: string;
 };
 export type DemoState = {
+  leads?: Record<string, LeadDetails>;
   calls: Record<string, {
     caller: string; called: string; callId: string; at: string; disclosure: string;
     flowId?: string; flow?: VoiceFlow; disclosureVersion?: string;

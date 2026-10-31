@@ -12,6 +12,8 @@ export type InquiryEmail = {
   email: string;
   phone: string;
   message: string;
+  originatingNumber?: string;
+  preferredCallbackNumber?: string;
 };
 
 export class InquiryEmailError extends Error {
@@ -59,12 +61,14 @@ export async function sendInquiryEmail(inquiry: InquiryEmail, recipientOverride?
   const subject = `NEW LEAD — ${inquiry.productName} — ${subjectBusiness}`;
   const timestamp = new Date().toISOString();
   const rows: Array<[string, string]> = [
+    ...(inquiry.originatingNumber ? [["Originating phone number", inquiry.originatingNumber] as [string, string]] : []),
+    ...(inquiry.preferredCallbackNumber ? [["Preferred callback number", inquiry.preferredCallbackNumber] as [string, string]] : []),
     ["Product selected", inquiry.productName],
     ["Monthly price", inquiry.monthlyPrice],
     ["Setup price", inquiry.setupPrice],
     ["Customer name", inquiry.customerName],
     ["Business", inquiry.businessName],
-    ["Email", inquiry.email],
+    ["Email", inquiry.originatingNumber ? "Not provided by caller" : inquiry.email],
     ["Phone", inquiry.phone || "Not provided"],
     ["Customer message", inquiry.message || "Not provided"],
     ["Submitted", timestamp],

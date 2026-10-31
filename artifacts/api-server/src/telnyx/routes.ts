@@ -3,10 +3,12 @@ import { verifyTelnyx } from "./auth";
 import { businesses, liveSending } from "./config";
 import { DemoError, incomingCall, recordSelection, recordMessage, messagingInput, voiceInput } from "./service";
 import { storage } from "./storage";
-import { startJobs } from "./runtime";
+import { startJobs as startRuntimeJobs } from "./runtime";
 import { logger } from "../lib/logger";
 
-export const telnyxRouter = Router();
+// Tests inject a no-op dispatcher so signed synthetic requests cannot email or text.
+export function createTelnyxRouter(startJobs: typeof startRuntimeJobs = startRuntimeJobs) {
+const telnyxRouter = Router();
 
 telnyxRouter.get("/health", async (_req, res): Promise<void> => {
   let storageReady = false;
@@ -79,3 +81,6 @@ telnyxRouter.use((error: unknown, _req: Request, res: Response, _next: NextFunct
   logger.error({ event: "telnyx_request_failed" });
   res.status(503).json({ error: "Demo could not safely store this request; retry later" });
 });
+return telnyxRouter;
+}
+export const telnyxRouter = createTelnyxRouter();

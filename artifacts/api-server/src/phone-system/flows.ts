@@ -20,6 +20,9 @@ export function getVoiceFlow(id: string): VoiceFlow {
     || !flow.options || typeof flow.options !== "object" || Array.isArray(flow.options)) {
     throw new Error("Invalid voice flow settings");
   }
+  if (textFields.some(field => field !== "introText" && flow[field].includes("{callerNumber}"))) {
+    throw new Error("Caller number placeholder is only supported in introductory SMS");
+  }
   const options = Object.entries(flow.options);
   if (options.length === 0 || options.length > 10) throw new Error("A voice flow needs keypad options");
   for (const [digit, option] of options) {
@@ -35,7 +38,7 @@ export function getVoiceFlow(id: string): VoiceFlow {
   }
   for (const text of [...textFields.map(field => flow[field]),
     ...options.flatMap(([, option]) => option.action === "say-and-hang-up" ? [option.message] : [])]) {
-    const withoutTokens = text.replace(/\{(businessName|helpContact|consentKey)\}/g, "");
+    const withoutTokens = text.replace(/\{(businessName|helpContact|consentKey|callerNumber)\}/g, "");
     if (/[{}]/.test(withoutTokens)) throw new Error("Unknown voice flow text placeholder");
   }
   return structuredClone(flow);
@@ -45,11 +48,11 @@ export function consentKey(flow: VoiceFlow): string {
   return Object.entries(flow.options).find(([, option]) => option.action === "consent-and-text")![0];
 }
 
-export function fillText(text: string, business: PhoneNumber, flow: VoiceFlow): string {
+export function fillText(text: string, business: PhoneNumber, flow: VoiceFlow, callerNumber = ""): string {
   const tokens: Record<string, string> = {
-    businessName: business.name, helpContact: business.helpContact, consentKey: consentKey(flow),
+    businessName: business.name, helpContact: business.helpContact, consentKey: consentKey(flow), callerNumber,
   };
-  return text.replace(/\{(businessName|helpContact|consentKey)\}/g, (_, token: string) => tokens[token]);
+  return text.replace(/\{(businessName|helpContact|consentKey|callerNumber)\}/g, (_, token: string) => tokens[token]);
 }
 
 export function consentDisclosure(business: PhoneNumber, flow: VoiceFlow): string {
@@ -62,7 +65,8 @@ export function spokenPrompt(business: PhoneNumber, flow: VoiceFlow): string {
   return consentDisclosure(business, flow) + " " + fillText(flow.greeting, business, flow);
 }
 
-export function introductoryText(business: PhoneNumber, flow: VoiceFlow): string {
-  return fillText(flow.introText, business, flow)
+export function introductoryText(business: PhoneNumber, flow: VoiceFlow, callerNumber = ""): string {
+  if (flow.introText.includes("{callerNumber}") && !callerNumber) throw new Error("Caller number required for introductory text");
+  return fillText(flow.introText, business, flow, callerNumber)
     + " Msg frequency varies. Msg & data rates may apply. Reply STOP to opt out, HELP for help.";
 }

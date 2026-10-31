@@ -31,7 +31,7 @@ test("Blob-backed consent/retry/STOP flow retains one introduction and suppresse
   const call = { From: "+12025550123", To: business.number, CallSid: "synthetic-blob-call" };
   await incomingCall(store, business, call);
   await Promise.all(Array.from({ length: 6 }, () => recordSelection(store, business, { ...call, Digits: "1" })));
-  assert.equal(await store.transaction(business.id, s => Object.keys(s.jobs).length), 1);
+  assert.equal(await store.transaction(business.id, s => Object.values(s.jobs).filter(j => j.kind === "sms").length), 1);
   await recordMessage(store, business, { data: {
     id: "stop-event", event_type: "message.received", occurred_at: new Date().toISOString(),
     payload: { id: "stop-message", direction: "inbound", messaging_profile_id: business.profileId,

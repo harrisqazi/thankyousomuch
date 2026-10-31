@@ -93,7 +93,8 @@ test("only 1 creates consent; requires a matching recent prompt; concurrent retr
   assert.equal(saved.key, "1");
   assert.equal(saved.flowId, "tysm-get-started");
   assert.equal(saved.action, "consent-and-text");
-  assert.equal(Object.values(state.jobs).length, 1);
+  assert.equal(Object.values(state.jobs).filter(job => job.kind === "sms").length, 1);
+  assert.equal(Object.values(state.jobs).filter(job => job.kind === "email").length, 1);
   await assert.rejects(recordSelection(store, business, { ...input, Digits: "1" }, new Date(now.getTime() + 31 * 60_000)), /recent/);
 });
 
@@ -109,7 +110,60 @@ test("press 1 confirms only the known number and asks for missing business detai
   assert.match(sms.text, /Reply STOP to opt out, HELP for help/);
   assert.ok(!sms.text.includes("{businessName}"));
   assert.ok(!sms.text.includes("appointment confirmed"));
-  assert.equal(stateOf(store).consents[key(input.From)].disclosureVersion, "inquiry-sms-v2:tysm-get-started:2");
+  assert.equal(stateOf(store).consents[key(input.From)].disclosureVersion, `inquiry-sms-v2:tysm-get-started:${voiceFlows[business.flowId].version}`);
+  assert.ok(sms.text.includes(input.From));
+  assert.ok(!sms.text.includes("{callerNumber}"));
+  assert.match(sms.text, /preferred call back number/);
+});
+
+test("texting hi returns the same personalized intro once and cannot override STOP", async () => {
+  const store = memoryStore();
+  const greeting = received("hi", "hello");
+  await recordMessage(store, business, greeting);
+  await recordMessage(store, business, greeting);
+  const state = stateOf(store);
+  const sms = Object.values(state.jobs).filter(j => j.kind === "sms");
+  assert.equal(sms.length, 1);
+  assert.ok(sms[0].text.includes(`We've saved your number as ${input.From}`));
+  assert.equal(state.consents[key(input.From)].action, "inbound-inquiry");
+  await recordMessage(store, business, received("STOP", "stop-greeting"));
+  await recordMessage(store, business, received("hi", "blocked-greeting"));
+  assert.equal(Object.values(stateOf(store).jobs).filter(j => j.kind === "sms").length, 1);
+  let sends = 0;
+  await processJobs(store, business, { env: live, sendSms: async () => { sends++; return { id: "unexpected" }; }, notify: async () => {} });
+  assert.equal(sends, 0);
+});
+
+test("lead fields are private, separately labeled and snapshotted in each email", async () => {
+  const store = memoryStore();
+  await recordMessage(store, business, received("hi", "lead-start"));
+  await recordMessage(store, business, received(
+    "Name: Jordan Example; Business: Example Plumbing; Callback: (202) 555-0199", "lead-details"));
+  const state = stateOf(store), lead = state.leads?.[key(input.From)];
+  assert.deepEqual(lead, {
+    originatingNumber: input.From, customerName: "Jordan Example",
+    businessName: "Example Plumbing", preferredCallbackNumber: "(202) 555-0199",
+  });
+  const email = Object.values(state.jobs).find(j => j.kind === "email" && j.lead?.customerName);
+  assert.ok(email);
+  assert.match(email.text, /Originating phone number: \+12025550123/);
+  assert.match(email.text, /Preferred callback number: \(202\) 555-0199/);
+  await recordMessage(store, business, received("Callback: nope", "bad-callback"));
+  assert.equal(stateOf(store).leads?.[key(input.From)].preferredCallbackNumber, "(202) 555-0199");
+  await recordMessage(store, business, received("Name: Updated Name", "changed-name"));
+  assert.equal(email.lead?.customerName, "Jordan Example");
+  const initialEmail = Object.values(state.jobs).find(j => j.kind === "email" && !j.lead?.customerName);
+  assert.match(initialEmail!.text, /Name: Not provided yet/);
+  assert.equal(Object.values(state.jobs).filter(j => j.kind === "sms").length, 1);
+});
+
+test("unstructured messages are preserved without inventing names or preferred numbers", async () => {
+  const store = memoryStore();
+  await recordMessage(store, business, received("I run a repair business, call me", "unstructured"));
+  const state = stateOf(store);
+  assert.deepEqual(state.leads?.[key(input.From)], { originatingNumber: input.From });
+  assert.match(Object.values(state.jobs).find(j => j.kind === "email")!.text, /I run a repair business/);
+  assert.equal(Object.keys(state.consents).length, 0);
 });
 
 test("new businesses stay dry-run without individual approval even when global switches are live", async () => {
@@ -301,7 +355,7 @@ test("explicit SMS failures and uncertain network operations notify owner and ar
     const deps = { env: live, now: () => now, sendSms: async () => { sends++; throw error; },
       notify: async () => { emails++; } };
     await processJobs(store, business, deps); await processJobs(store, business, deps);
-    assert.equal(sends, 1); assert.equal(emails, 1);
+    assert.equal(sends, 1); assert.equal(emails, 2); // lead notification + failure notification
     const sms = Object.values(stateOf(store).jobs).find(j => j.kind === "sms")!;
     assert.equal(sms.status, error instanceof SmsRejected ? "failed" : "uncertain");
   }

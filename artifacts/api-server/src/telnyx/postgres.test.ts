@@ -16,8 +16,8 @@ test("real PostgreSQL + signed HTTP forms persist consent atomically and dry-run
   process.env.TELNYX_PUBLIC_KEY = (publicKey.export({ format: "der", type: "spki" }) as Buffer).subarray(-32).toString("base64");
   process.env.TELNYX_BUSINESSES_JSON = JSON.stringify([business]);
   process.env.TELNYX_SMS_ENABLED = "false";
-  const { telnyxRouter } = await import("./routes");
-  const app = express(); app.use(telnyxRouter);
+  const { createTelnyxRouter } = await import("./routes");
+  const app = express(); app.use(createTelnyxRouter(() => {}));
   const server = app.listen(0, "127.0.0.1");
   await new Promise<void>(resolve => server.once("listening", resolve));
   const address = server.address(); assert.ok(address && typeof address !== "string");
@@ -39,11 +39,11 @@ test("real PostgreSQL + signed HTTP forms persist consent atomically and dry-run
     assert.match(await response.text(), /Press 1/);
     const responses = await Promise.all(Array.from({ length: 4 }, () => post("/voice/selection", { ...fields, Digits: "1" })));
     for (const response of responses) assert.equal(response.status, 200);
-    await processJobs(postgresStore, business, { env: {}, notify: async () => assert.fail("no email expected"),
+    await processJobs(postgresStore, business, { env: {}, notify: async () => {},
       sendSms: async () => { assert.fail("dry run cannot send"); } });
     const counts = await postgresStore.transaction(id, state => ({
       calls: Object.keys(state.calls).length, consents: Object.keys(state.consents).length,
-      statuses: Object.values(state.jobs).map(j => j.status),
+      statuses: Object.values(state.jobs).filter(j => j.kind === "sms").map(j => j.status),
     }));
     assert.deepEqual(counts, { calls: 1, consents: 1, statuses: ["dry_run"] });
     const health = await fetch(base + "/health");
