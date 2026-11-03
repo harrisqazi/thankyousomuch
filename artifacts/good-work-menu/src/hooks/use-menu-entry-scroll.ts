@@ -26,6 +26,7 @@ export function useMenuEntryScroll(dialogOpen: boolean) {
     let previousY = window.scrollY;
     let armedSide: 'above' | 'below' | null = window.scrollY > targetTop() + 80
       ? 'below' : window.scrollY < targetTop() - 80 ? 'above' : null;
+    if (window.location.hash) armedSide = null;
     const interactive = (target: EventTarget | null) =>
       target instanceof Element && Boolean(target.closest(INTERACTIVE));
     const finish = () => {
@@ -38,6 +39,19 @@ export function useMenuEntryScroll(dialogOpen: boolean) {
       cancelAnimationFrame(frame);
     };
     const noteInput = () => { lastInput = performance.now(); };
+    const restorePolicyAnchor = () => {
+      const id = window.location.hash.slice(1);
+      if (id !== 'privacy' && id !== 'sms-terms') return;
+      const target = document.getElementById(id);
+      if (!target) return;
+      finish();
+      introHandled.current = true;
+      armedSide = null;
+      // React renders these anchors after the browser's initial hash lookup.
+      // Explicit navigation must not be mistaken for a scroll past the menu.
+      target.scrollIntoView({ behavior: 'instant', block: 'start' });
+      previousY = window.scrollY;
+    };
     const approachingMenu = (delta: number) => {
       const y = window.scrollY;
       const top = targetTop();
@@ -118,6 +132,13 @@ export function useMenuEntryScroll(dialogOpen: boolean) {
       }
     };
     const onClick = (event: MouseEvent) => {
+      if (event.target instanceof Element
+        && event.target.closest('a[href="#privacy"], a[href="#sms-terms"]')) {
+        finish();
+        introHandled.current = true;
+        armedSide = null;
+        return;
+      }
       if (event.button !== 0 || introHandled.current || interactive(event.target)
         || window.getSelection()?.toString()) return;
       snap();
@@ -142,8 +163,11 @@ export function useMenuEntryScroll(dialogOpen: boolean) {
     window.addEventListener('keydown', onKey);
     window.addEventListener('click', onClick);
     window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('hashchange', restorePolicyAnchor);
+    const anchorFrame = requestAnimationFrame(restorePolicyAnchor);
     return () => {
       cancelAnimationFrame(frame);
+      cancelAnimationFrame(anchorFrame);
       root.classList.remove('menu-entry-snapping');
       // Opening the inquiry during a snap must not re-arm it on close.
       if (snapping) introHandled.current = true;
@@ -155,6 +179,7 @@ export function useMenuEntryScroll(dialogOpen: boolean) {
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('click', onClick);
       window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('hashchange', restorePolicyAnchor);
     };
   }, [dialogOpen]);
 }

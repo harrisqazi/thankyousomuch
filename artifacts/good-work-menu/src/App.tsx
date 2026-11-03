@@ -6,6 +6,7 @@ import { useHealthCheck, useSendInquiry } from '@workspace/api-client-react';
 import { CUSTOM_PRODUCT, PRODUCTS, type ProductId } from '@workspace/api-zod';
 import { MenuSection } from './components/MenuSection';
 import { HeroIntro } from './components/HeroIntro';
+import { SmsDisclosures } from './components/SmsDisclosures';
 import { useMenuEntryScroll } from './hooks/use-menu-entry-scroll';
 
 const queryClient = new QueryClient();
@@ -319,16 +320,17 @@ function Home() {
           </div>
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
             <a href="#privacy" className="menu-link text-xs font-bold" data-testid="link-privacy">Privacy notice</a>
+            <a href="#sms-terms" className="menu-link text-xs font-bold" data-testid="link-sms-terms">SMS terms</a>
             <p className="mono text-[.58rem] text-[#161616]/65">An expert in enterprise AI.</p>
           </div>
         </div>
         <div className="mt-6 max-w-xl space-y-2" data-testid="phone-contact">
           <p className="mono text-xs font-bold uppercase tracking-wide">Contact us</p>
           <a href="tel:+18597158052" className="display inline-block py-2 text-2xl underline decoration-[#b9dce8] underline-offset-4 sm:text-3xl" data-testid="contact-phone">(859) 715-8052</a>
-          <p className="text-xs leading-relaxed text-[#161616]/65">Call and press 1, or text “hi” to request a callback once the phone demo is activated. The demo is not live yet; activation and carrier approval are pending. For now, use MESSAGE US to reach our team.</p>
+          <p className="text-xs leading-relaxed text-[#161616]/65">Our call greeting is connected. Call and press 1 to leave your number for follow-up. Automatic text replies, including replies to “hi,” are not active yet: carrier campaign approval is pending. Use MESSAGE US if you need to reach our team now.</p>
           <p className="text-xs leading-relaxed text-[#161616]/65">When texting is available: message frequency varies. Message and data rates may apply. Reply STOP to opt out or HELP for help. Consent is not a condition of purchase.</p>
         </div>
-        <p id="privacy" className="mt-4 max-w-[72ch] text-[.7rem] leading-relaxed text-[#161616]/65">We privately store your inquiry and email it to our team so we can respond, even if email is unavailable. We don’t sell your information.</p>
+        <SmsDisclosures />
         <p className="mono mt-5 text-[.58rem] uppercase tracking-[.08em] text-[#161616]/55" aria-live="polite" data-testid="status-api-process">
           {health.isLoading ? 'API process: checking' : health.error ? 'API process: unavailable' : `API process: ${health.data?.status ?? 'unknown'}`}
         </p>
