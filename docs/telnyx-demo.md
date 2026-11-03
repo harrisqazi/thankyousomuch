@@ -36,9 +36,13 @@ Implemented in the existing Express API; the website and its lead form are prese
 No external Render service is required. This is a **direct-call, press-1 demo**,
 not automatic detection of missed calls to another business number.
 
-**Not live yet.** Vercel access and Telnyx API credentials have been verified.
-Messaging approval, keyword configuration, publishing, and a real call/SMS test
-must still be completed. Outbound application SMS remains disabled.
+**Voice and inbound webhooks are connected. Outbound SMS is not live.**
+The TeXML app, number +18597158052, messaging profile webhook, and STOP/HELP/START
+profile auto-replies are configured. Brand Frame of Reference is verified. There is
+still no 10DLC campaign and no number-to-campaign assignment, so US A2P delivery
+fails with Telnyx 40010. Keep all four live switches false and
+`outboundSmsApproved` false until that campaign is approved and the number is assigned.
+A queued Telnyx send is not delivery. Do not treat brand verification as SMS authorization.
 The first consented SMS confirms that the calling number was saved, asks for the
 caller's name and business, and says the team will call during regular business
 hours. Pressing 1 does not supply a name, book an appointment, or schedule an

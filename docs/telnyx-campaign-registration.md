@@ -61,6 +61,32 @@ The number below is a fictional example, not the owner's test recipient:
 
 This is multipart SMS. Do not price it as a single SMS segment.
 
+## Harris-only console clicks (fees apply)
+
+Do not submit this campaign from an API key unless Harris has accepted the current
+Telnyx 10DLC fees in Mission Control. Brand `BQUU8GC` / Frame of Reference is already
+verified. Campaign count is still zero.
+
+1. Sign in at https://portal.telnyx.com/
+2. Open **Messaging → 10DLC** (Campaigns): https://portal.telnyx.com/#/messaging/10dlc
+3. Click **Create a campaign** / **Create New Campaign**.
+4. Brand: **Frame of Reference**. Use case: **LOW_VOLUME** (Low Volume Mixed) with
+   sub-use **CUSTOMER_CARE**.
+5. Accept carrier terms. Confirm the listed brand/campaign fees (qualify API last
+   reported $1.50/month and $4.50/quarter for LOW_VOLUME, plus Telnyx’s campaign
+   review fee when the campaign is sent downstream).
+6. Paste the description, opt-in flow, sample, privacy, and SMS terms from this file.
+   Privacy: https://www.thankyousomuch.ai/#privacy  
+   SMS terms: https://www.thankyousomuch.ai/#sms-terms
+7. Submit and wait for **ACTIVE** / MNO approved. Registry acceptance is not enough.
+8. Open the approved campaign → **Phone Numbers** / **Assign Numbers** → messaging
+   profile **TYSM Demo** → assign **+18597158052**. Wait until status is **ASSIGNED**
+   (often minutes to a few hours; can take longer).
+9. After assignment succeeds, tell the operator to set Production Vercel
+   `TELNYX_API_KEY` (new key; do not put it in git), then the four live switches and
+   `outboundSmsApproved: true`, then call (859) 715-8052 and press 1 from Harris’s
+   mobile.
+
 ## Release checklist
 
 1. Publish and verify the supporting website disclosures.
