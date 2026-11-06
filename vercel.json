@@ -5,7 +5,11 @@
   "rewrites": [
     { "source": "/voice/:path*", "destination": "/api/voice/:path*" },
     { "source": "/webhooks/telnyx/:path*", "destination": "/api/webhooks/telnyx/:path*" },
-    { "source": "/health", "destination": "/api/health" }
+    { "source": "/health", "destination": "/api/health" },
+    { "source": "/privacy", "destination": "/privacy.html" },
+    { "source": "/privacy/", "destination": "/privacy.html" },
+    { "source": "/sms-terms", "destination": "/sms-terms.html" },
+    { "source": "/sms-terms/", "destination": "/sms-terms.html" }
   ],
   "functions": {
     "api/[...path].js": { "maxDuration": 60 },

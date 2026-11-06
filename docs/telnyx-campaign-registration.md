@@ -23,8 +23,8 @@ These must actually be deployed and publicly readable before they are included
 in an application:
 
 - Website: https://www.thankyousomuch.ai/
-- Privacy: https://www.thankyousomuch.ai/#privacy
-- SMS terms: https://www.thankyousomuch.ai/#sms-terms
+- Privacy: https://www.thankyousomuch.ai/privacy
+- SMS terms: https://www.thankyousomuch.ai/sms-terms
 
 ## Proposed description
 
@@ -34,6 +34,25 @@ inquirer receives a number-confirmation text asking for their name, business,
 and preferred callback number. Replies are privately retained and forwarded to
 the TYSM team for human follow-up. The program does not book appointments,
 automatically call customers, or send unsolicited SMS.
+
+## Resubmit after TCR 806 (paste these URLs and CTA)
+
+Campaign `4b3001a1-a4f0-f950-3e1d-07cba9b7024a` was rejected with TCR 806. After
+https://www.thankyousomuch.ai/privacy and https://www.thankyousomuch.ai/sms-terms
+are deployed, Harris resubmits in the Telnyx portal ($15 review fee). Do not
+submit from the API.
+
+Privacy policy URL:
+
+    https://www.thankyousomuch.ai/privacy
+
+Terms / SMS program URL:
+
+    https://www.thankyousomuch.ai/sms-terms
+
+Message Flow / Call To Action:
+
+    To opt in to Thank You So Much (TYSM) inquiry texts on mobile, call (859) 715-8052, hear the text-message disclosure, and press 1, or text HI, HELLO, or HEY to +18597158052. Reply HELP for help (email admin@thankyousomuch.ai). Reply STOP to opt out. Message frequency varies. Message and data rates may apply. Consent is not a condition of purchase. Privacy policy: https://www.thankyousomuch.ai/privacy
 
 ## Actual opt-in flow
 

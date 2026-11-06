@@ -1,8 +1,9 @@
 ## Callback inquiry behavior
 
-The website footer links to TYSM's dedicated contact number. Until both production
-activation and carrier approval are verified, it explicitly says the phone demo
-is not live and directs visitors to MESSAGE US.
+The website footer lists the dedicated contact number and a complete SMS CTA
+(opt-in path, HELP, STOP, frequency, rates, consent, and a path URL to /privacy).
+Dedicated crawlable pages are /privacy and /sms-terms. Outbound SMS stays off
+until a 10DLC campaign is MNO-approved and the number is assigned.
 
 Callers hear the SMS consent notice, then the configured marketing greeting.
 Only pressing 1 records call consent and queues an introduction. Sending `hi`,
@@ -37,8 +38,11 @@ No external Render service is required. This is a **direct-call, press-1 demo**,
 not automatic detection of missed calls to another business number.
 
 **Not live yet.** Vercel access and Telnyx API credentials have been verified.
-Messaging approval, keyword configuration, publishing, and a real call/SMS test
-must still be completed. Outbound application SMS remains disabled.
+Carriers rejected campaign `4b3001a1-a4f0-f950-3e1d-07cba9b7024a` with TCR **806**
+(CTA / privacy path). Use crawlable https://www.thankyousomuch.ai/privacy and
+https://www.thankyousomuch.ai/sms-terms — not hash links. Outbound application
+SMS remains disabled until a resubmitted campaign is MNO-approved and the number
+is ASSIGNED.
 The first consented SMS confirms that the calling number was saved, asks for the
 caller's name and business, and says the team will call during regular business
 hours. Pressing 1 does not supply a name, book an appointment, or schedule an

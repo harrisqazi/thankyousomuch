@@ -2,10 +2,13 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Check, X } from 'lucide-react';
+import { Route, Switch } from 'wouter';
 import { useHealthCheck, useSendInquiry } from '@workspace/api-client-react';
 import { CUSTOM_PRODUCT, PRODUCTS, type ProductId } from '@workspace/api-zod';
 import { MenuSection } from './components/MenuSection';
 import { HeroIntro } from './components/HeroIntro';
+import { PrivacyPage, SmsTermsPage } from './components/LegalPage';
+import { SmsCta } from './components/SmsCta';
 import { SmsDisclosures } from './components/SmsDisclosures';
 import { useMenuEntryScroll } from './hooks/use-menu-entry-scroll';
 
@@ -319,17 +322,12 @@ function Home() {
             <p className="display text-[.9rem] sm:text-lg">THANK YOU SO MUCH<span className="text-[#cd1725]">.</span></p>
           </div>
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-            <a href="#privacy" className="menu-link text-xs font-bold" data-testid="link-privacy">Privacy notice</a>
-            <a href="#sms-terms" className="menu-link text-xs font-bold" data-testid="link-sms-terms">SMS terms</a>
+            <a href="/privacy" className="menu-link text-xs font-bold" data-testid="link-privacy">Privacy notice</a>
+            <a href="/sms-terms" className="menu-link text-xs font-bold" data-testid="link-sms-terms">SMS terms</a>
             <p className="mono text-[.58rem] text-[#161616]/65">An expert in enterprise AI.</p>
           </div>
         </div>
-        <div className="mt-6 max-w-xl space-y-2" data-testid="phone-contact">
-          <p className="mono text-xs font-bold uppercase tracking-wide">Contact us</p>
-          <a href="tel:+18597158052" className="display inline-block py-2 text-2xl underline decoration-[#b9dce8] underline-offset-4 sm:text-3xl" data-testid="contact-phone">(859) 715-8052</a>
-          <p className="text-xs leading-relaxed text-[#161616]/65">Our call greeting is connected. Call and press 1 to leave your number for follow-up. Automatic text replies, including replies to “hi,” are not active yet: carrier campaign approval is pending. Use MESSAGE US if you need to reach our team now.</p>
-          <p className="text-xs leading-relaxed text-[#161616]/65">When texting is available: message frequency varies. Message and data rates may apply. Reply STOP to opt out or HELP for help. Consent is not a condition of purchase.</p>
-        </div>
+        <SmsCta />
         <SmsDisclosures />
         <p className="mono mt-5 text-[.58rem] uppercase tracking-[.08em] text-[#161616]/55" aria-live="polite" data-testid="status-api-process">
           {health.isLoading ? 'API process: checking' : health.error ? 'API process: unavailable' : `API process: ${health.data?.status ?? 'unknown'}`}
@@ -343,7 +341,11 @@ function Home() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Home />
+      <Switch>
+        <Route path="/privacy" component={PrivacyPage} />
+        <Route path="/sms-terms" component={SmsTermsPage} />
+        <Route component={Home} />
+      </Switch>
     </QueryClientProvider>
   );
 }

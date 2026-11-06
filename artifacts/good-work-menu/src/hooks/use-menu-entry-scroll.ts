@@ -133,7 +133,7 @@ export function useMenuEntryScroll(dialogOpen: boolean) {
     };
     const onClick = (event: MouseEvent) => {
       if (event.target instanceof Element
-        && event.target.closest('a[href="#privacy"], a[href="#sms-terms"]')) {
+        && event.target.closest('a[href="#privacy"], a[href="#sms-terms"], a[href="/privacy"], a[href="/sms-terms"]')) {
         finish();
         introHandled.current = true;
         armedSide = null;
