@@ -25,8 +25,8 @@ export const phoneNumbers: PhoneNumber[] = [
     helpContact: "admin@thankyousomuch.ai",
     providerManagedHelp: true,
     flowId: "tysm-get-started",
-    // Change only AFTER this business's carrier approval and keyword checks.
-    // Global sending switches must also be enabled separately.
-    outboundSmsApproved: false,
+    // Number is assigned to campaign 4b3001a1-a4f0-f950-3e1d-07cba9b7024a (ASSIGNED).
+    // Global Vercel switches must also be true for press-1 texts to send.
+    outboundSmsApproved: true,
   },
 ];
