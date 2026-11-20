@@ -18,12 +18,16 @@ export async function notify(business: Business, job: Job) {
   }, business.recipient);
 }
 
-export function startJobs(business: Business) {
-  const work = processJobs(storage(), business, { sendSms, notify }).catch(() => {
+export async function startJobs(business: Business) {
+  const store = storage();
+  const onFail = () => {
     // No raw payload, telephone number, message, SQL, or credential in logs.
     logger.error({ event: "telnyx_outbox_needs_review", businessId: business.id });
-  });
-  // Keep serverless execution alive after the fast webhook acknowledgment.
-  if (process.env.VERCEL) waitUntil(work);
-  else void work;
+  };
+  // Express-on-Vercel often drops waitUntil after 2xx. Send SMS before acknowledging
+  // so HI/HELLO/HEY replies actually leave Telnyx. Email can finish in the background.
+  await processJobs(store, business, { sendSms, notify, kinds: ["sms"] }).catch(onFail);
+  const mail = processJobs(store, business, { sendSms, notify, kinds: ["email"] }).catch(onFail);
+  if (process.env.VERCEL) waitUntil(mail);
+  else await mail;
 }

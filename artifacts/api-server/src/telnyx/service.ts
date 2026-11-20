@@ -4,7 +4,7 @@ import { getVoiceFlow, spokenPrompt, fillText, introductoryText, consentVersion,
 import type { VoiceFlow } from "../phone-system/text-to-speech";
 import { leadSummary, updateLead } from "./lead-details";
 import {
-  appointmentEmail, bookingConfirmedText, inboundGreetingText, isGreeting, isGreetingOnly,
+  appointmentEmail, bookingConfirmedText, inboundGreetingText, inboundText, isGreeting, isGreetingOnly,
   matchSlot, offerSlots, parseNameAndNumber, slotPrompt,
 } from "./sms-booking";
 
@@ -125,7 +125,8 @@ export function messagingInput(value: unknown): MessagingEvent {
     || !p || typeof p.id !== "string" || !p.id || p.id.length > 256
     || typeof p.messaging_profile_id !== "string"
     || !/^\+[1-9]\d{7,14}$/.test(p.from?.phone_number)
-    || !Array.isArray(p.to) || p.to.length !== 1 || !/^\+[1-9]\d{7,14}$/.test(p.to[0]?.phone_number)
+    || !Array.isArray(p.to) || p.to.length < 1 || p.to.length > 8
+    || !/^\+[1-9]\d{7,14}$/.test(p.to[0]?.phone_number)
     || (p.text !== undefined && (typeof p.text !== "string" || p.text.length > 10_000))
     || (d.event_type === "message.received" ? p.direction !== "inbound" : p.direction !== "outbound")) {
     throw new DemoError(400, "Invalid messaging payload");
@@ -149,8 +150,8 @@ export async function recordMessage(store: StateStore, business: Business, event
     if (inbound) {
       // A provider can redeliver the same message under another event ID.
       if (state.messages[messageId]) return;
-      const text = p.text || "[MMS received; attachments are not downloaded by this demo]";
-      const keyword = text.trim().toUpperCase().replace(/\s+/g, " ");
+      const text = inboundText(p.text || "") || "[MMS received; attachments are not downloaded by this demo]";
+      const keyword = text.toUpperCase();
       if (["STOP", "STOPALL", "STOP ALL", "UNSUBSCRIBE", "CANCEL", "END", "QUIT"].includes(keyword)) {
         state.optOuts[callerKey] = d.occurred_at;
         if (state.consents[callerKey]) state.consents[callerKey].revokedAt = d.occurred_at;

@@ -80,13 +80,18 @@ export function bookingConfirmedText(slot: OfferedSlot): string {
   return `You're booked for ${slot.label}. Our team will follow up at that time. ${SMS_DISCLOSURE}`;
 }
 
+export function inboundText(text: string): string {
+  return text.replace(/[\u200b-\u200d\ufeff]/g, "").replace(/\s+/g, " ").trim();
+}
+
 export function isGreeting(text: string): boolean {
-  return /^(hi|hello|hey)([\s!.?,]|$)(.*)?$/i.test(text.trim())
-    && /^(hi|hello|hey)\b/i.test(text.trim());
+  const normalized = inboundText(text);
+  return /^(hi|hello|hey)([\s!.?,]|$)(.*)?$/i.test(normalized)
+    && /^(hi|hello|hey)\b/i.test(normalized);
 }
 
 export function isGreetingOnly(text: string): boolean {
-  return /^(hi|hello|hey)[\s!.?,]*$/i.test(text.trim());
+  return /^(hi|hello|hey)[\s!.?,]*$/i.test(inboundText(text));
 }
 
 export function parseNameAndNumber(text: string, previous: LeadDetails): LeadDetails {

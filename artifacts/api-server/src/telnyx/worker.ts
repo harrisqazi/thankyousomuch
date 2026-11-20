@@ -7,6 +7,7 @@ type Dependencies = {
   notify: (business: Business, job: Job) => Promise<void>;
   env?: NodeJS.ProcessEnv;
   now?: () => Date;
+  kinds?: Array<Job["kind"]>;
 };
 
 /** Durable claims: crashed/ambiguous external operations are NEVER auto-resent. */
@@ -16,7 +17,8 @@ export async function processJobs(store: StateStore, business: Business, deps: D
   // Bound one serverless invocation; run the recovery command for larger queues.
   for (let i = 0; i < 25; i++) {
     const job = await store.transaction(business.id, state => {
-      const pending = Object.values(state.jobs).find(j => j.status === "pending");
+      const pending = Object.values(state.jobs).find(j => j.status === "pending"
+        && (!deps.kinds || deps.kinds.includes(j.kind)));
       if (!pending) return null;
       const at = now();
       if (pending.kind === "sms") {

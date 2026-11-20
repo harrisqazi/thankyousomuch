@@ -57,7 +57,7 @@ telnyxRouter.post("/voice/incoming", raw, authenticated, async (req, res): Promi
 telnyxRouter.post("/voice/selection", raw, authenticated, async (req, res): Promise<void> => {
   const input = form(req), business = findBusiness(input.To);
   const xml = await recordSelection(storage(), business, input);
-  startJobs(business);
+  await startJobs(business);
   res.type("application/xml").send(xml);
 });
 telnyxRouter.post("/webhooks/telnyx/messaging", raw, authenticated, async (req, res): Promise<void> => {
@@ -71,7 +71,7 @@ telnyxRouter.post("/webhooks/telnyx/messaging", raw, authenticated, async (req, 
   const business = findBusiness(number);
   // Persist consent/opt-out/message and its notification job BEFORE 2xx.
   await recordMessage(storage(), business, event);
-  startJobs(business);
+  await startJobs(business);
   res.sendStatus(200);
 });
 telnyxRouter.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {

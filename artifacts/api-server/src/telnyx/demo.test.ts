@@ -161,6 +161,14 @@ test("lead fields are private, separately labeled and snapshotted in each email"
   assert.equal(Object.values(state.jobs).filter(j => j.kind === "sms").length, 2);
 });
 
+test("BOM and trailing newline still match HI", async () => {
+  const store = memoryStore();
+  await recordMessage(store, business, received("\uFEFFHI\n", "hello-bom"));
+  const sms = Object.values(stateOf(store).jobs).filter(j => j.kind === "sms");
+  assert.equal(sms.length, 1);
+  assert.match(sms[0].text, /recuperate your lost leads/i);
+});
+
 test("inbound hello then name and number offers slots and books a reply", async () => {
   const store = memoryStore();
   await recordMessage(store, business, received("HELLO", "hello-case"));

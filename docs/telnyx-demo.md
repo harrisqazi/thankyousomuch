@@ -205,8 +205,8 @@ writes fail rather than blindly replaying the mutation. Development uses Postgre
 row locks for the same StateStore interface. No message content is served by a
 public export endpoint.
 
-Webhooks persist before acknowledging and then process jobs using Vercel waitUntil.
-The outbox is durable, but it is **not an independently scheduled queue service**:
+Inbound messaging webhooks persist, send queued SMS, then acknowledge. Email
+jobs may finish with Vercel waitUntil after the 2xx. The outbox is durable, but it is **not an independently scheduled queue service**:
 if execution dies after acknowledgment, run the recovery command below. New
 webhooks also drain pending work. Each invocation processes at most 25 jobs.
 For unattended production operation, add a regularly scheduled recovery worker
