@@ -13,11 +13,15 @@ export type Job = {
   createdAt: string; claimedAt?: string; finishedAt?: string; providerId?: string; error?: string;
   lead?: LeadDetails;
 };
+export type OfferedSlot = { id: "1" | "2" | "3"; label: string; at: string };
 export type LeadDetails = {
   originatingNumber: string;
   customerName?: string;
   businessName?: string;
   preferredCallbackNumber?: string;
+  smsFlow?: "awaiting_details" | "awaiting_slot" | "booked";
+  offeredSlots?: OfferedSlot[];
+  appointment?: { slotLabel: string; at: string; bookedAt: string };
 };
 export type DemoState = {
   leads?: Record<string, LeadDetails>;

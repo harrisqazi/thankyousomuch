@@ -5,7 +5,7 @@ export const CONTACT_NUMBER_E164 = '+18597158052';
 
 /** One-block SMS CTA for homepage and campaign Message Flow / CTA fields. */
 export const SMS_CTA =
-  'To opt in to Thank You So Much (TYSM) inquiry texts on mobile, call (859) 715-8052, hear the text-message disclosure, and press 1, or text HI, HELLO, or HEY to +18597158052. Reply HELP for help (email admin@thankyousomuch.ai). Reply STOP to opt out. Message frequency varies. Message and data rates may apply. Consent is not a condition of purchase. Privacy policy: https://www.thankyousomuch.ai/privacy';
+  'To opt in to Thank You So Much (TYSM) inquiry texts on mobile, call (859) 715-8052, hear the text-message disclosure, and press 1, or text HI, HELLO, or HEY to +18597158052 to request a callback. We will ask your name and number, then offer times to book a call. Reply HELP for help (email admin@thankyousomuch.ai). Reply STOP to opt out. Message frequency varies. Message and data rates may apply. Consent is not a condition of purchase. Privacy policy: https://www.thankyousomuch.ai/privacy';
 
 export const PRIVACY_PARAGRAPHS = [
   'Thank You So Much (TYSM) is operated by Frame of Reference. This privacy policy applies to thankyousomuch.ai, calls and texts to (859) 715-8052 / +18597158052, and related inquiry email.',
@@ -15,7 +15,7 @@ export const PRIVACY_PARAGRAPHS = [
 ];
 
 export const SMS_TERMS_PARAGRAPHS = [
-  'TYSM inquiry texts help people request a callback, provide their name and business, and discuss their inquiry. Opt in on mobile by calling (859) 715-8052, hearing the text-message disclosure, and pressing 1, or by texting HI, HELLO, or HEY to +18597158052. Providing a number in our website contact form alone does not opt you into SMS.',
+  'TYSM inquiry texts help people request a callback, provide their name and number, and book a call time. Opt in on mobile by calling (859) 715-8052, hearing the text-message disclosure, and pressing 1, or by texting HI, HELLO, or HEY to +18597158052. Providing a number in our website contact form alone does not opt you into SMS.',
   'Message frequency varies. Message and data rates may apply. Consent is not a condition of purchase. Reply STOP to stop texts or HELP for help; email admin@thankyousomuch.ai for support. Reply START to opt back in after opting out.',
   'A callback request is not a confirmed appointment or a guarantee of an immediate response. Text delivery depends on carrier availability; carriers are not liable for delayed or undelivered messages. This service is not for emergencies. See https://www.thankyousomuch.ai/privacy for how inquiry and consent information is handled.',
 ];

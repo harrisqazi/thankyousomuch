@@ -32,7 +32,7 @@ export async function processJobs(store: StateStore, business: Business, deps: D
         const daily = attempts.filter(j => j.caller === pending.caller
           && at.getTime() - Date.parse(j.claimedAt!) < 86_400_000).length;
         if (hourly >= limit(env.TELNYX_HOURLY_LIMIT, 10, 100)
-          || daily >= limit(env.TELNYX_CONTACT_DAILY_LIMIT, 2, 10)) {
+          || daily >= limit(env.TELNYX_CONTACT_DAILY_LIMIT, 8, 20)) {
           pending.status = "suppressed"; pending.error = "sending_limit"; return { skip: true } as const;
         }
       }

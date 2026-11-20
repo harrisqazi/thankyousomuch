@@ -124,7 +124,9 @@ test("texting hi returns the same personalized intro once and cannot override ST
   const state = stateOf(store);
   const sms = Object.values(state.jobs).filter(j => j.kind === "sms");
   assert.equal(sms.length, 1);
-  assert.ok(sms[0].text.includes(`We've saved your number as ${input.From}`));
+  assert.match(sms[0].text, /recuperate your lost leads/i);
+  assert.match(sms[0].text, /name and number/i);
+  assert.match(sms[0].text, /Reply STOP to opt out, HELP for help/);
   assert.equal(state.consents[key(input.From)].action, "inbound-inquiry");
   await recordMessage(store, business, received("STOP", "stop-greeting"));
   await recordMessage(store, business, received("hi", "blocked-greeting"));
@@ -140,10 +142,12 @@ test("lead fields are private, separately labeled and snapshotted in each email"
   await recordMessage(store, business, received(
     "Name: Jordan Example; Business: Example Plumbing; Callback: (202) 555-0199", "lead-details"));
   const state = stateOf(store), lead = state.leads?.[key(input.From)];
-  assert.deepEqual(lead, {
-    originatingNumber: input.From, customerName: "Jordan Example",
-    businessName: "Example Plumbing", preferredCallbackNumber: "(202) 555-0199",
-  });
+  assert.equal(lead?.originatingNumber, input.From);
+  assert.equal(lead?.customerName, "Jordan Example");
+  assert.equal(lead?.businessName, "Example Plumbing");
+  assert.equal(lead?.preferredCallbackNumber, "(202) 555-0199");
+  assert.equal(lead?.smsFlow, "awaiting_slot");
+  assert.equal(lead?.offeredSlots?.length, 3);
   const email = Object.values(state.jobs).find(j => j.kind === "email" && j.lead?.customerName);
   assert.ok(email);
   assert.match(email.text, /Originating phone number: \+12025550123/);
@@ -154,7 +158,29 @@ test("lead fields are private, separately labeled and snapshotted in each email"
   assert.equal(email.lead?.customerName, "Jordan Example");
   const initialEmail = Object.values(state.jobs).find(j => j.kind === "email" && !j.lead?.customerName);
   assert.match(initialEmail!.text, /Name: Not provided yet/);
-  assert.equal(Object.values(state.jobs).filter(j => j.kind === "sms").length, 1);
+  assert.equal(Object.values(state.jobs).filter(j => j.kind === "sms").length, 2);
+});
+
+test("inbound hello then name and number offers slots and books a reply", async () => {
+  const store = memoryStore();
+  await recordMessage(store, business, received("HELLO", "hello-case"));
+  await recordMessage(store, business, received("Harris 2025550199", "details"));
+  const afterDetails = stateOf(store);
+  const slots = afterDetails.leads?.[key(input.From)]?.offeredSlots;
+  assert.equal(slots?.length, 3);
+  const slotSms = Object.values(afterDetails.jobs).filter(j => j.kind === "sms");
+  assert.equal(slotSms.length, 2);
+  assert.match(slotSms[1].text, /Thank you, please select one of the following times/);
+  assert.match(slotSms[1].text, /Reply STOP to opt out, HELP for help/);
+  await recordMessage(store, business, received("1", "pick"));
+  const booked = stateOf(store);
+  assert.equal(booked.leads?.[key(input.From)]?.smsFlow, "booked");
+  assert.ok(booked.leads?.[key(input.From)]?.appointment?.slotLabel);
+  assert.equal(Object.values(booked.jobs).filter(j => j.kind === "sms").length, 3);
+  assert.match(Object.values(booked.jobs).find(j => j.text.includes("You're booked"))!.text, /You're booked/);
+  const appointmentMail = Object.values(booked.jobs).find(j => j.kind === "email" && j.text.includes("SMS appointment booked"));
+  assert.ok(appointmentMail);
+  assert.match(appointmentMail.text, /Harris/);
 });
 
 test("unstructured messages are preserved without inventing names or preferred numbers", async () => {
@@ -174,7 +200,7 @@ test("new businesses stay dry-run without individual approval even when global s
     notify: async () => {},
   });
   assert.equal(Object.values(stateOf(store).jobs)[0].status, "dry_run");
-  assert.equal(phoneNumbers[0].outboundSmsApproved, false);
+  assert.equal(phoneNumbers[0].outboundSmsApproved, true);
 });
 
 test("changing a flow during a call does not rewrite its prompt, key, voice, version, or intro", async () => {

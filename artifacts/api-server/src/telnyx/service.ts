@@ -3,6 +3,10 @@ import { enqueue, key, type StateStore } from "./state";
 import { getVoiceFlow, spokenPrompt, fillText, introductoryText, consentVersion, consentDisclosure } from "../phone-system/flows";
 import type { VoiceFlow } from "../phone-system/text-to-speech";
 import { leadSummary, updateLead } from "./lead-details";
+import {
+  appointmentEmail, bookingConfirmedText, inboundGreetingText, isGreeting, isGreetingOnly,
+  matchSlot, offerSlots, parseNameAndNumber, slotPrompt,
+} from "./sms-booking";
 
 export const DISCLOSURE_VERSION = consentVersion;
 export const disclosure = (business: Business) =>
@@ -169,21 +173,41 @@ export async function recordMessage(store: StateStore, business: Business, event
       };
       state.leads ||= {};
       const existingLead = state.leads[callerKey] || { originatingNumber: caller };
-      const isGreeting = /^(hi|hello|hey)[!. ]*$/i.test(text.trim());
+      const greeting = isGreeting(text);
       const isControl = ["STOP", "STOPALL", "STOP ALL", "UNSUBSCRIBE", "CANCEL", "END", "QUIT", "START", "UNSTOP", "HELP", "INFO"].includes(keyword);
-      const lead = isControl ? existingLead : updateLead(existingLead, text);
-      state.leads[callerKey] = lead;
+      let lead = isControl ? existingLead : updateLead(existingLead, text);
       // An inbound greeting authorizes an inquiry response, not a marketing campaign.
       // A greeting never overrides STOP; only a newer explicit START can unblock.
-      if (isGreeting && !state.optOuts[callerKey]) {
+      if (!isControl && !state.optOuts[callerKey]
+        && (isGreetingOnly(text) || (greeting && lead.smsFlow !== "awaiting_details" && lead.smsFlow !== "awaiting_slot"))) {
         state.consents[callerKey] = {
           caller, called: business.number, callId: p.id, consentedAt: d.occurred_at,
           disclosure: "Customer initiated an inquiry by SMS; response limited to this inquiry.",
-          disclosureVersion: "inbound-inquiry-v1", action: "inbound-inquiry",
+          disclosureVersion: "inbound-inquiry-v2", action: "inbound-inquiry",
         };
-        enqueue(state, "sms", caller, introductoryText(business, getVoiceFlow(business.flowId), caller),
-          d.occurred_at, key(`inbound-intro:${p.id}`));
+        lead = { ...lead, smsFlow: "awaiting_details", offeredSlots: undefined, appointment: undefined };
+        enqueue(state, "sms", caller, inboundGreetingText, d.occurred_at, key(`inbound-intro:${p.id}`));
+      } else if (!isControl && !state.optOuts[callerKey] && lead.smsFlow === "awaiting_details") {
+        lead = parseNameAndNumber(text, lead);
+        if (lead.customerName && lead.preferredCallbackNumber) {
+          const slots = offerSlots(new Date(d.occurred_at));
+          lead = { ...lead, smsFlow: "awaiting_slot", offeredSlots: slots };
+          enqueue(state, "sms", caller, slotPrompt(slots), d.occurred_at, key(`inbound-slots:${p.id}`));
+        }
+      } else if (!isControl && !state.optOuts[callerKey] && lead.smsFlow === "awaiting_slot" && lead.offeredSlots?.length) {
+        const slot = matchSlot(text, lead.offeredSlots);
+        if (slot) {
+          lead = {
+            ...lead, smsFlow: "booked",
+            appointment: { slotLabel: slot.label, at: slot.at, bookedAt: d.occurred_at },
+          };
+          enqueue(state, "sms", caller, bookingConfirmedText(slot), d.occurred_at, key(`inbound-booked:${p.id}`));
+          const booked = enqueue(state, "email", caller, appointmentEmail(lead, slot),
+            d.occurred_at, key(`appointment:${p.id}`));
+          state.jobs[booked].lead = structuredClone(lead);
+        }
       }
+      state.leads[callerKey] = lead;
       if (help && !business.providerManagedHelp) {
         enqueue(state, "sms", caller, help, d.occurred_at, key(`help:${p.id}`));
       }
