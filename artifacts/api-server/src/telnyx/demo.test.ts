@@ -366,7 +366,7 @@ test("tenants reject mismatched numbers/profiles and maintain separate data/noti
   assert.throws(() => businesses({ TELNYX_BUSINESSES_JSON: JSON.stringify([business, { ...other, profileId: business.profileId }]) }), /overlapping/);
 });
 
-test("per-contact and business send limits are atomically enforced", async () => {
+test("per-contact hourly anti-loop is atomically enforced", async () => {
   const store = memoryStore(); await consent(store); await consent(store, "call-2"); await consent(store, "call-3");
   let sends = 0;
   await processJobs(store, business, { env: { ...live, TELNYX_HOURLY_LIMIT: "1" }, now: () => now,
@@ -387,13 +387,13 @@ test("explicit SMS failures and uncertain network operations notify owner and ar
   }
 });
 
-test("per-contact daily limit applies independently of the business hourly limit", async () => {
-  const store = memoryStore(); await consent(store); await consent(store, "call-2");
+test("legacy TELNYX_CONTACT_DAILY_LIMIT of 2 does not drop a booking thread", async () => {
+  const store = memoryStore(); await consent(store); await consent(store, "call-2"); await consent(store, "call-3");
   let sends = 0;
-  await processJobs(store, business, { env: { ...live, TELNYX_CONTACT_DAILY_LIMIT: "1", TELNYX_HOURLY_LIMIT: "10" },
+  await processJobs(store, business, { env: { ...live, TELNYX_CONTACT_DAILY_LIMIT: "2", TELNYX_HOURLY_LIMIT: "20" },
     now: () => now, sendSms: async () => ({ id: `send-${++sends}` }), notify: async () => {} });
-  assert.equal(sends, 1);
-  assert.equal(Object.values(stateOf(store).jobs).filter(j => j.error === "sending_limit").length, 1);
+  assert.equal(sends, 3);
+  assert.equal(Object.values(stateOf(store).jobs).filter(j => j.error === "sending_limit").length, 0);
 });
 
 test("final delivery status is not overwritten by a delayed message.sent event; failed delivery creates notification", async () => {

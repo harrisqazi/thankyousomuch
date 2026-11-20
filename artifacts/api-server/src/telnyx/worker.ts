@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { liveSending, limit, type Business } from "./config";
+import { liveSending, contactDailyLimit, contactHourlyLimit, type Business } from "./config";
 import { enqueue, key, type Job, type StateStore } from "./state";
 
 type Dependencies = {
@@ -27,12 +27,11 @@ export async function processJobs(store: StateStore, business: Business, deps: D
         if (!liveSending(env) || business.outboundSmsApproved !== true) {
           pending.status = "dry_run"; pending.finishedAt = at.toISOString(); return { skip: true } as const;
         }
-        const attempts = Object.values(state.jobs).filter(j => j.kind === "sms" && j.claimedAt);
+        const attempts = Object.values(state.jobs).filter(j => j.kind === "sms" && j.claimedAt
+          && j.caller === pending.caller);
         const hourly = attempts.filter(j => at.getTime() - Date.parse(j.claimedAt!) < 3_600_000).length;
-        const daily = attempts.filter(j => j.caller === pending.caller
-          && at.getTime() - Date.parse(j.claimedAt!) < 86_400_000).length;
-        if (hourly >= limit(env.TELNYX_HOURLY_LIMIT, 10, 100)
-          || daily >= limit(env.TELNYX_CONTACT_DAILY_LIMIT, 8, 20)) {
+        const daily = attempts.filter(j => at.getTime() - Date.parse(j.claimedAt!) < 86_400_000).length;
+        if (hourly >= contactHourlyLimit(env) || daily >= contactDailyLimit(env)) {
           pending.status = "suppressed"; pending.error = "sending_limit"; return { skip: true } as const;
         }
       }

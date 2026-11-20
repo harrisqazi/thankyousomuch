@@ -89,9 +89,11 @@ TELNYX_DRY_RUN=true
 TELNYX_MESSAGING_APPROVED=false
 TELNYX_KEYWORDS_CONFIRMED=false
 TELNYX_NOTIFY_TO=admin@thankyousomuch.ai
-TELNYX_HOURLY_LIMIT=10
-TELNYX_CONTACT_DAILY_LIMIT=2
+TELNYX_HOURLY_LIMIT=20
+TELNYX_CONTACT_DAILY_LIMIT=5000
 ```
+
+`TELNYX_HOURLY_LIMIT` is a **per-contact** anti-loop (default 20/hour). It is not a business-wide cap, so unique HI/HELLO senders are not queued behind each other. `TELNYX_CONTACT_DAILY_LIMIT` defaults to **5000**/contact/day. Values below 100 (including the old flood default of 2) are ignored so they cannot drop a booking thread. Set `0` to disable the daily cap. Recommended Vercel Production: `TELNYX_CONTACT_DAILY_LIMIT=5000` and `TELNYX_HOURLY_LIMIT=20` (or omit both).
 
 Production additionally sets `TELNYX_STORAGE_BACKEND=blob`. Development defaults
 to `postgres`. Storage choice is explicit; missing credentials or storage errors

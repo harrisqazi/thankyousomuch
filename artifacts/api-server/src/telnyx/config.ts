@@ -52,3 +52,16 @@ export function limit(value: string | undefined, fallback: number, maximum: numb
   const n = Number(value);
   return Number.isInteger(n) && n > 0 && n <= maximum ? n : fallback;
 }
+
+/** Per-contact SMS/day. Legacy flood defaults (2, 8) must not drop real HI threads. 0 disables. */
+export function contactDailyLimit(env = process.env) {
+  const n = Number(env.TELNYX_CONTACT_DAILY_LIMIT);
+  if (n === 0) return Number.POSITIVE_INFINITY;
+  if (Number.isInteger(n) && n >= 100 && n <= 100_000) return n;
+  return 5000;
+}
+
+/** Per-contact SMS/hour anti-loop. Business-wide hourly caps are not used. */
+export function contactHourlyLimit(env = process.env) {
+  return limit(env.TELNYX_HOURLY_LIMIT, 20, 100);
+}
