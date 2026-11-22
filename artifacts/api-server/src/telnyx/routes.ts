@@ -66,8 +66,12 @@ telnyxRouter.post("/webhooks/telnyx/messaging", raw, authenticated, async (req, 
   try { parsed = JSON.parse((req.body as Buffer).toString("utf8")); }
   catch { throw new DemoError(400, "Invalid JSON"); }
   const event = messagingInput(parsed), payload = event.data.payload;
-  const number = event.data.event_type === "message.received"
-    ? payload.to[0].phone_number : payload.from.phone_number;
+  const inbound = event.data.event_type === "message.received";
+  const configured = businesses();
+  const number = inbound
+    ? (payload.to.map(entry => entry.phone_number).find(n => configured.some(b => b.number === n))
+      || payload.to[0].phone_number)
+    : payload.from.phone_number;
   const business = findBusiness(number);
   // Persist consent/opt-out/message and its notification job BEFORE 2xx.
   await recordMessage(storage(), business, event);

@@ -116,29 +116,71 @@ type MessagePayload = {
 export type MessagingEvent = { data: {
   id: string; event_type: string; occurred_at: string; payload: MessagePayload;
 } };
+
+const e164 = /^\+[1-9]\d{7,14}$/;
+function phoneOf(value: unknown): string | undefined {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return e164.test(trimmed) ? trimmed : undefined;
+  }
+  if (value && typeof value === "object" && !Array.isArray(value)
+    && typeof (value as { phone_number?: unknown }).phone_number === "string") {
+    return phoneOf((value as { phone_number: string }).phone_number);
+  }
+}
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown> : undefined;
+}
+
 export function messagingInput(value: unknown): MessagingEvent {
-  const v = value as MessagingEvent;
-  const d = v?.data, p = d?.payload;
-  if (!d || typeof d.id !== "string" || !d.id || d.id.length > 256
-    || !["message.received", "message.sent", "message.finalized"].includes(d.event_type)
-    || typeof d.occurred_at !== "string" || !Number.isFinite(Date.parse(d.occurred_at))
-    || !p || typeof p.id !== "string" || !p.id || p.id.length > 256
-    || typeof p.messaging_profile_id !== "string"
-    || !/^\+[1-9]\d{7,14}$/.test(p.from?.phone_number)
-    || !Array.isArray(p.to) || p.to.length < 1 || p.to.length > 8
-    || !/^\+[1-9]\d{7,14}$/.test(p.to[0]?.phone_number)
-    || (p.text !== undefined && (typeof p.text !== "string" || p.text.length > 10_000))
-    || (d.event_type === "message.received" ? p.direction !== "inbound" : p.direction !== "outbound")) {
+  const root = asRecord(value);
+  const d = asRecord(root?.data) || root;
+  const p = asRecord(d?.payload) || asRecord(root?.payload);
+  const eventType = typeof d?.event_type === "string" ? d.event_type
+    : typeof d?.eventType === "string" ? d.eventType as string : "";
+  const inbound = eventType === "message.received";
+  const from = phoneOf(p?.from);
+  const toValues = Array.isArray(p?.to) ? p.to : p?.to !== undefined ? [p.to] : [];
+  const to = toValues.map(phoneOf).filter((n): n is string => Boolean(n)).slice(0, 8);
+  const textRaw = p?.text ?? p?.body;
+  const text = textRaw === undefined || textRaw === null ? undefined : String(textRaw);
+  const id = typeof d?.id === "string" && d.id ? d.id
+    : typeof p?.id === "string" ? p.id : "";
+  const payloadId = typeof p?.id === "string" && p.id ? p.id : id;
+  const occurred = typeof d?.occurred_at === "string" && Number.isFinite(Date.parse(d.occurred_at))
+    ? d.occurred_at : new Date().toISOString();
+  const profile = typeof p?.messaging_profile_id === "string" ? p.messaging_profile_id : "";
+  const direction = typeof p?.direction === "string" ? p.direction
+    : inbound ? "inbound" : "outbound";
+  if (!id || id.length > 256 || !payloadId || payloadId.length > 256
+    || !["message.received", "message.sent", "message.finalized"].includes(eventType)
+    || !from || to.length < 1
+    || (text !== undefined && text.length > 10_000)
+    || (inbound ? direction !== "inbound" : direction !== "outbound")) {
     throw new DemoError(400, "Invalid messaging payload");
   }
-  return v;
+  return {
+    data: {
+      id, event_type: eventType, occurred_at: occurred,
+      payload: {
+        id: payloadId, messaging_profile_id: profile, direction,
+        from: { phone_number: from },
+        to: to.map(phone_number => ({ phone_number })),
+        text,
+        errors: Array.isArray(p?.errors) ? p.errors as MessagePayload["errors"] : undefined,
+      },
+    },
+  };
 }
 
 export async function recordMessage(store: StateStore, business: Business, event: MessagingEvent) {
   const { data: d } = event, p = d.payload;
   const inbound = d.event_type === "message.received";
-  const businessNumber = inbound ? p.to[0].phone_number : p.from.phone_number;
-  if (business.number !== businessNumber || business.profileId !== p.messaging_profile_id) {
+  const businessNumber = inbound
+    ? (p.to.find(entry => entry.phone_number === business.number)?.phone_number || p.to[0].phone_number)
+    : p.from.phone_number;
+  if (business.number !== businessNumber) {
     throw new DemoError(400, "Business or messaging profile mismatch");
   }
   await store.transaction(business.id, state => {

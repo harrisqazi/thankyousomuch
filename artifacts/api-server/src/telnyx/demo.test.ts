@@ -418,6 +418,27 @@ test("final delivery status is not overwritten by a delayed message.sent event; 
   assert.equal(Object.values(stateOf(store).jobs).length, 1);
 });
 
+test("inbound HI still queues when Telnyx omits or mismatches the messaging profile id", async () => {
+  const store = memoryStore();
+  const event = received("HI", "hi-profile");
+  event.data.payload.messaging_profile_id = "unexpected-profile";
+  await recordMessage(store, business, event);
+  const sms = Object.values(stateOf(store).jobs).filter(j => j.kind === "sms");
+  assert.equal(sms.length, 1);
+  assert.match(sms[0].text, /recuperate your lost leads/i);
+  const stringy = messagingInput({
+    data: {
+      id: "evt-stringy", event_type: "message.received", occurred_at: now.toISOString(),
+      payload: {
+        id: "msg-stringy", direction: "inbound",
+        from: input.From, to: business.number, text: "hey",
+      },
+    },
+  });
+  assert.equal(stringy.data.payload.from.phone_number, input.From);
+  assert.equal(stringy.data.payload.to[0].phone_number, business.number);
+});
+
 test("malformed provider payloads are rejected", () => {
   for (const input of [{}, { data: {} }, { data: { payload: {} } }]) assert.throws(() => messagingInput(input));
   const bad = received(); bad.data.payload.direction = "outbound";
