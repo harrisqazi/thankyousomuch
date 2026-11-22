@@ -8,6 +8,7 @@ import { CUSTOM_PRODUCT, PRODUCTS, type ProductId } from '@workspace/api-zod';
 import { MenuSection } from './components/MenuSection';
 import { HeroIntro } from './components/HeroIntro';
 import { PrivacyPage, SmsTermsPage } from './components/LegalPage';
+import { HeaderLeadMagnet } from './components/LeadMagnetCta';
 import { SmsCta } from './components/SmsCta';
 import { SmsDisclosures } from './components/SmsDisclosures';
 import { useMenuEntryScroll } from './hooks/use-menu-entry-scroll';
@@ -255,7 +256,8 @@ function Home() {
           <span className="display flex h-9 w-9 items-center justify-center rounded-full bg-[#cd1725] text-[.56rem] font-bold tracking-[-.04em] text-white">TYSM</span>
           <span className="brand-wordmark display text-[.82rem] tracking-[-.045em] sm:text-[1.2rem]">THANK YOU SO MUCH<span className="text-[#176b45]">.</span></span>
         </a>
-        <nav className="site-nav flex items-center gap-5 sm:gap-9" aria-label="Main navigation">
+        <nav className="site-nav flex items-center gap-3 sm:gap-7" aria-label="Main navigation">
+          <HeaderLeadMagnet />
           <a className="menu-link mono text-[.7rem] font-medium uppercase tracking-[.16em] text-[#6EB2FF]" href="#menu" data-testid="link-menu">MENU</a>
           <button onClick={() => openInquiry(CUSTOM_PRODUCT.id)} className="secondary-button flex min-h-11 items-center gap-1.5 border-b-2 border-[#6EB2FF] px-1 text-[.73rem] font-extrabold uppercase tracking-[.08em]" data-testid="button-header-message">
             MESSAGE US ↗

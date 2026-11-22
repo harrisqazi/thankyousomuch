@@ -1,5 +1,6 @@
 import { ArrowUpRight } from "lucide-react";
 import { formatUsd, PRODUCTS, type ProductId } from "@workspace/api-zod";
+import { ProductLeadMagnet } from "./LeadMagnetCta";
 
 function LineIllustration({ kind }: { kind: (typeof PRODUCTS)[number]["icon"] }) {
   const shared = {
@@ -32,6 +33,7 @@ export function MenuSection({ onSelectService }: { onSelectService: (id: Product
             <p className="mono mt-2 text-[.68rem] font-medium uppercase tracking-[.17em] text-white">GREAT SERVICE. SIMPLE PRICES.</p>
           </div>
         </div>
+        <ProductLeadMagnet />
         <div className="border-t-2 border-white" role="group" aria-label="Follow-up services">
           {PRODUCTS.map((product) => (
             <button

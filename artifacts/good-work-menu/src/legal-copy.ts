@@ -3,6 +3,11 @@ export const SMS_TERMS_URL = 'https://www.thankyousomuch.ai/sms-terms';
 export const CONTACT_NUMBER_DISPLAY = '(859) 715-8052';
 export const CONTACT_NUMBER_E164 = '+18597158052';
 
+export const LEAD_MAGNET_LINE =
+  'Text HI or call (859) 715-8052 and press 1.';
+export const LEAD_MAGNET_DISCLOSURE =
+  'Message frequency varies. Message and data rates may apply. Reply STOP to opt out, HELP for help. Consent is not a condition of purchase.';
+
 /** One-block SMS CTA for homepage and campaign Message Flow / CTA fields. */
 export const SMS_CTA =
   'To opt in to Thank You So Much (TYSM) inquiry texts on mobile, call (859) 715-8052, hear the text-message disclosure, and press 1, or text HI, HELLO, or HEY to +18597158052 to request a callback. We will ask your name and number, then offer times to book a call. Reply HELP for help (email admin@thankyousomuch.ai). Reply STOP to opt out. Message frequency varies. Message and data rates may apply. Consent is not a condition of purchase. Privacy policy: https://www.thankyousomuch.ai/privacy';
