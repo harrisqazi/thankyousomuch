@@ -42,6 +42,21 @@ export type DemoState = {
 export const emptyState = (): DemoState => ({
   calls: {}, consents: {}, optOuts: {}, events: {}, messages: {}, jobs: {},
 });
+export function normalizeDemoState(value: unknown): DemoState {
+  const raw = value && typeof value === "object" && !Array.isArray(value)
+    ? value as Partial<DemoState> : {};
+  const maps = <T>(item: T | undefined): T =>
+    item && typeof item === "object" && !Array.isArray(item) ? item : {} as T;
+  return {
+    calls: maps(raw.calls),
+    consents: maps(raw.consents),
+    optOuts: maps(raw.optOuts),
+    events: maps(raw.events),
+    messages: maps(raw.messages),
+    jobs: maps(raw.jobs),
+    leads: raw.leads && typeof raw.leads === "object" ? raw.leads : {},
+  };
+}
 export interface StateStore {
   transaction<T>(businessId: string, change: (state: DemoState) => T): Promise<T>;
   health(): Promise<boolean>;

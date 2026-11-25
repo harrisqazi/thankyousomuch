@@ -1,6 +1,6 @@
 import { get, put, list, BlobPreconditionFailedError } from "@vercel/blob";
 import { setTimeout as delay } from "node:timers/promises";
-import { emptyState, type DemoState, type StateStore } from "./state";
+import { emptyState, normalizeDemoState, type DemoState, type StateStore } from "./state";
 
 export type Snapshot = { state: DemoState; etag: string };
 export type BlobBackend = {
@@ -20,11 +20,13 @@ const backend: BlobBackend = {
     const result = await get(path, { access: "private", useCache: false, abortSignal: AbortSignal.timeout(8000) });
     if (!result) return null;
     if (result.statusCode !== 200 || result.blob.size > 8_000_000) throw new Error("Invalid demo snapshot");
-    const state = await new Response(result.stream).json() as DemoState;
-    if (!state.calls || !state.consents || !state.messages || !state.jobs || !state.optOuts || !state.events) {
-      throw new Error("Invalid demo state");
+    let parsed: unknown;
+    try {
+      parsed = await new Response(result.stream).json();
+    } catch {
+      parsed = emptyState();
     }
-    return { state, etag: result.blob.etag };
+    return { state: normalizeDemoState(parsed), etag: result.blob.etag };
   },
   async write(path, state, etag) {
     try {
@@ -59,7 +61,7 @@ export function createBlobStore(io: BlobBackend = backend): StateStore {
       const path = `${prefix()}${businessId}.json`;
       for (let attempt = 0; attempt < 12; attempt++) {
         const snapshot = await io.read(path);
-        const state = snapshot?.state || emptyState();
+        const state = normalizeDemoState(snapshot?.state || emptyState());
         const value = change(state); // Must be synchronous and free of external side effects.
         if (Buffer.byteLength(JSON.stringify(state)) > 8_000_000) throw new Error("Demo storage needs archival");
         try {

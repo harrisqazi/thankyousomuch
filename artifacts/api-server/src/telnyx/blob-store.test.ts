@@ -68,6 +68,18 @@ test("ambiguous Blob write errors are not replayed automatically", async () => {
   await assert.rejects(createBlobStore(io).transaction("demo", () => { mutations++; }), /uncertain/);
   assert.equal(mutations, 1);
 });
+test("incomplete blob snapshots are normalized instead of failing the webhook", async () => {
+  const { io, data } = fakeBackend();
+  data.set("telnyx-demo/v1/development/demo.json", { state: { events: { a: "1" } } as never, etag: "1" });
+  const store = createBlobStore(io);
+  assert.equal(await store.transaction("demo", s => {
+    assert.equal(s.events.a, "1");
+    assert.ok(s.jobs && s.consents);
+    s.events.b = "2";
+    return Object.keys(s.events).length;
+  }), 2);
+});
+
 test("exhausted write conflicts fail closed instead of overwriting another request", async () => {
   const { io } = fakeBackend();
   io.write = async () => { throw new StateConflict(); };

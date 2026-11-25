@@ -62,6 +62,16 @@ function peekMessaging(body: Buffer | undefined, parsedBody: unknown) {
     return {};
   }
 }
+function publicHandlerError(error: unknown): string {
+  if (error instanceof DemoError) return error.message.slice(0, 80);
+  if (error instanceof Error) {
+    const msg = error.message.replace(/\+?\d{7,}/g, "***").slice(0, 80);
+    if (/key|secret|token|bearer|authorization/i.test(msg)) return "handler_failed";
+    return msg || "handler_failed";
+  }
+  return "handler_failed";
+}
+
 async function persistAudit(entry: Record<string, unknown>) {
   await appendInboundAudit({
     at: new Date().toISOString(),
@@ -170,7 +180,7 @@ telnyxRouter.post("/webhooks/telnyx/messaging", raw, authenticated, async (req, 
     res.sendStatus(200);
   } catch (error) {
     const status = error instanceof DemoError ? error.status : 503;
-    await persistAudit({ ...audit, httpStatus: status, sendError: error instanceof DemoError ? error.message : "handler_failed" });
+    await persistAudit({ ...audit, httpStatus: status, sendError: publicHandlerError(error) });
     throw error;
   }
 });

@@ -31,7 +31,11 @@ export async function startJobs(business: Business) {
     return { smsSends: [{ status: "uncertain" as const, error: "outbox_failed" }] };
   });
   const mail = processJobs(store, business, { sendSms, notify, kinds: ["email"] }).catch(onFail);
-  if (process.env.VERCEL) waitUntil(mail);
-  else await mail;
+  try {
+    if (process.env.VERCEL) waitUntil(mail);
+    else await mail;
+  } catch {
+    void mail;
+  }
   return sms;
 }
