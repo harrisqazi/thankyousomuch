@@ -26,8 +26,12 @@ export async function startJobs(business: Business) {
   };
   // Express-on-Vercel often drops waitUntil after 2xx. Send SMS before acknowledging
   // so HI/HELLO/HEY replies actually leave Telnyx. Email can finish in the background.
-  await processJobs(store, business, { sendSms, notify, kinds: ["sms"] }).catch(onFail);
+  const sms = await processJobs(store, business, { sendSms, notify, kinds: ["sms"] }).catch(error => {
+    onFail();
+    return { smsSends: [{ status: "uncertain" as const, error: "outbox_failed" }] };
+  });
   const mail = processJobs(store, business, { sendSms, notify, kinds: ["email"] }).catch(onFail);
   if (process.env.VERCEL) waitUntil(mail);
   else await mail;
+  return sms;
 }

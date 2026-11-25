@@ -3,9 +3,11 @@ import assert from "node:assert/strict";
 import { generateKeyPairSync, sign } from "node:crypto";
 import express from "express";
 import { businesses, liveSending } from "./config";
-import { verifyTelnyx } from "./auth";
+import { verifyTelnyx, verifyTelnyxDiagnose } from "./auth";
 import { emptyState, key, type DemoState, type StateStore } from "./state";
 import { incomingCall, recordSelection, recordMessage, messagingInput, type MessagingEvent } from "./service";
+import { maskPhone, textPrefix } from "./inbound-audit";
+import { rawWebhookBody } from "./webhook-body";
 import { processJobs, SmsRejected } from "./worker";
 import { voiceFlows } from "../phone-system/text-to-speech";
 import { getVoiceFlow } from "../phone-system/flows";
@@ -60,6 +62,9 @@ test("Ed25519 verifies exact JSON/form bytes; rejects tampering, absent headers,
     assert.equal(verifyTelnyx(raw, sig, timestamp, pub, now.getTime() + 301_000), false);
     assert.equal(verifyTelnyx(raw, sig, timestamp, pub, now.getTime() - 301_000), false);
     assert.equal(verifyTelnyx(raw, undefined, timestamp, pub, now.getTime()), false);
+    const millis = String(now.getTime());
+    const millisSig = sign(null, Buffer.concat([Buffer.from(`${millis}|`), raw]), privateKey).toString("base64");
+    assert.equal(verifyTelnyxDiagnose(raw, millisSig, millis, pub, now.getTime()).reason, "ok");
   }
 });
 
@@ -437,6 +442,14 @@ test("inbound HI still queues when Telnyx omits or mismatches the messaging prof
   });
   assert.equal(stringy.data.payload.from.phone_number, input.From);
   assert.equal(stringy.data.payload.to[0].phone_number, business.number);
+});
+
+test("inbound audit masks phones and flags a pre-parsed Vercel JSON body", () => {
+  assert.equal(maskPhone("+18596840478"), "***0478");
+  const sample = "Looking to recuperate your lost leads? extra";
+  assert.equal(textPrefix(sample), sample.slice(0, 32));
+  assert.equal(rawWebhookBody({ body: { data: {} } } as never).reason, "body_already_parsed");
+  assert.equal(rawWebhookBody({ body: Buffer.from("{}") } as never).reason, "ok");
 });
 
 test("malformed provider payloads are rejected", () => {

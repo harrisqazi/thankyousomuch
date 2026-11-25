@@ -174,7 +174,9 @@ export function messagingInput(value: unknown): MessagingEvent {
   };
 }
 
-export async function recordMessage(store: StateStore, business: Business, event: MessagingEvent) {
+export async function recordMessage(store: StateStore, business: Business, event: MessagingEvent): Promise<{
+  greetingMatched: boolean; jobQueued: boolean;
+}> {
   const { data: d } = event, p = d.payload;
   const inbound = d.event_type === "message.received";
   const businessNumber = inbound
@@ -183,15 +185,16 @@ export async function recordMessage(store: StateStore, business: Business, event
   if (business.number !== businessNumber) {
     throw new DemoError(400, "Business or messaging profile mismatch");
   }
-  await store.transaction(business.id, state => {
+  return store.transaction(business.id, state => {
+    const none = { greetingMatched: false, jobQueued: false };
     const eventId = key(d.id), messageId = key(p.id);
-    if (state.events[eventId]) return;
+    if (state.events[eventId]) return none;
     state.events[eventId] = d.occurred_at;
     const caller = inbound ? p.from.phone_number : p.to[0].phone_number;
     const callerKey = key(caller);
     if (inbound) {
       // A provider can redeliver the same message under another event ID.
-      if (state.messages[messageId]) return;
+      if (state.messages[messageId]) return none;
       const text = inboundText(p.text || "") || "[MMS received; attachments are not downloaded by this demo]";
       const keyword = text.toUpperCase();
       if (["STOP", "STOPALL", "STOP ALL", "UNSUBSCRIBE", "CANCEL", "END", "QUIT"].includes(keyword)) {
@@ -217,6 +220,8 @@ export async function recordMessage(store: StateStore, business: Business, event
       state.leads ||= {};
       const existingLead = state.leads[callerKey] || { originatingNumber: caller };
       const greeting = isGreeting(text);
+      const greetingMatched = isGreetingOnly(text) || greeting;
+      let jobQueued = false;
       const isControl = ["STOP", "STOPALL", "STOP ALL", "UNSUBSCRIBE", "CANCEL", "END", "QUIT", "START", "UNSTOP", "HELP", "INFO"].includes(keyword);
       let lead = isControl ? existingLead : updateLead(existingLead, text);
       // An inbound greeting authorizes an inquiry response, not a marketing campaign.
@@ -230,12 +235,14 @@ export async function recordMessage(store: StateStore, business: Business, event
         };
         lead = { ...lead, smsFlow: "awaiting_details", offeredSlots: undefined, appointment: undefined };
         enqueue(state, "sms", caller, inboundGreetingText, d.occurred_at, key(`inbound-intro:${p.id}`));
+        jobQueued = true;
       } else if (!isControl && !state.optOuts[callerKey] && lead.smsFlow === "awaiting_details") {
         lead = parseNameAndNumber(text, lead);
         if (lead.customerName && lead.preferredCallbackNumber) {
           const slots = offerSlots(new Date(d.occurred_at));
           lead = { ...lead, smsFlow: "awaiting_slot", offeredSlots: slots };
           enqueue(state, "sms", caller, slotPrompt(slots), d.occurred_at, key(`inbound-slots:${p.id}`));
+          jobQueued = true;
         }
       } else if (!isControl && !state.optOuts[callerKey] && lead.smsFlow === "awaiting_slot" && lead.offeredSlots?.length) {
         const slot = matchSlot(text, lead.offeredSlots);
@@ -245,6 +252,7 @@ export async function recordMessage(store: StateStore, business: Business, event
             appointment: { slotLabel: slot.label, at: slot.at, bookedAt: d.occurred_at },
           };
           enqueue(state, "sms", caller, bookingConfirmedText(slot), d.occurred_at, key(`inbound-booked:${p.id}`));
+          jobQueued = true;
           const booked = enqueue(state, "email", caller, appointmentEmail(lead, slot),
             d.occurred_at, key(`appointment:${p.id}`));
           state.jobs[booked].lead = structuredClone(lead);
@@ -260,6 +268,7 @@ export async function recordMessage(store: StateStore, business: Business, event
         + `Received: ${d.occurred_at}\nMessage ID: ${p.id}\n\n${text}`,
         d.occurred_at, key(`notification:${p.id}`));
       state.jobs[notification].lead = structuredClone(lead);
+      return { greetingMatched, jobQueued };
     } else {
       const current = state.messages[messageId];
       const status = typeof p.to[0].status === "string" ? p.to[0].status.slice(0, 100) : "unknown";
@@ -279,5 +288,6 @@ export async function recordMessage(store: StateStore, business: Business, event
           d.occurred_at, id);
       }
     }
+    return none;
   });
 }

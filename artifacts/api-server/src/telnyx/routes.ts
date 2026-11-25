@@ -1,10 +1,12 @@
 import express, { Router, type Request, type Response, type NextFunction } from "express";
-import { verifyTelnyx } from "./auth";
+import { verifyTelnyxDiagnose } from "./auth";
 import { businesses, liveSending } from "./config";
 import { DemoError, incomingCall, recordSelection, recordMessage, messagingInput, voiceInput } from "./service";
 import { storage } from "./storage";
 import { startJobs as startRuntimeJobs } from "./runtime";
 import { logger } from "../lib/logger";
+import { rawWebhookBody } from "./webhook-body";
+import { appendInboundAudit, listInboundAudit, maskPhone, textPrefix } from "./inbound-audit";
 
 // Tests inject a no-op dispatcher so signed synthetic requests cannot email or text.
 export function createTelnyxRouter(startJobs: typeof startRuntimeJobs = startRuntimeJobs) {
@@ -39,13 +41,78 @@ telnyxRouter.get("/health", async (_req, res): Promise<void> => {
     // This endpoint reports readiness, not proof of a successful live call.
   });
 });
+telnyxRouter.get("/health/inbound", async (_req, res): Promise<void> => {
+  const inbound = await listInboundAudit().catch(() => []);
+  res.set("Cache-Control", "no-store").json({ inbound, count: inbound.length });
+});
 const raw = express.raw({ type: ["application/json", "application/x-www-form-urlencoded"], limit: "64kb" });
-function authenticated(req: Request, res: Response, next: NextFunction) {
+function peekMessaging(body: Buffer | undefined, parsedBody: unknown) {
+  try {
+    const parsed = body ? JSON.parse(body.toString("utf8")) : parsedBody;
+    const payload = parsed?.data?.payload || parsed?.payload || {};
+    const from = payload.from?.phone_number || payload.from;
+    const to = Array.isArray(payload.to) ? (payload.to[0]?.phone_number || payload.to[0]) : payload.to;
+    return {
+      eventType: parsed?.data?.event_type || parsed?.event_type,
+      from: maskPhone(from),
+      to: maskPhone(to),
+      textPrefix: textPrefix(payload.text || payload.body),
+    };
+  } catch {
+    return {};
+  }
+}
+async function persistAudit(entry: Record<string, unknown>) {
+  await appendInboundAudit({
+    at: new Date().toISOString(),
+    bodyKind: String(entry.bodyKind || "unknown"),
+    signatureOk: Boolean(entry.signatureOk),
+    signatureReason: String(entry.signatureReason || "unknown"),
+    eventType: entry.eventType as string | undefined,
+    from: entry.from as string | undefined,
+    to: entry.to as string | undefined,
+    textPrefix: entry.textPrefix as string | undefined,
+    greetingMatched: entry.greetingMatched as boolean | undefined,
+    jobQueued: entry.jobQueued as boolean | undefined,
+    sendStatus: entry.sendStatus as string | undefined,
+    sendError: entry.sendError as string | undefined,
+    httpStatus: entry.httpStatus as number | undefined,
+  }).catch(() => undefined);
+}
+
+async function authenticated(req: Request, res: Response, next: NextFunction) {
+  const extracted = rawWebhookBody(req);
+  if (extracted.body) req.body = extracted.body;
   if (!process.env.TELNYX_PUBLIC_KEY) {
     res.status(503).json({ error: "Webhook verification is not configured" }); return;
   }
-  if (!Buffer.isBuffer(req.body) || !verifyTelnyx(req.body,
-    req.get("telnyx-signature-ed25519"), req.get("telnyx-timestamp"), process.env.TELNYX_PUBLIC_KEY)) {
+  if (!extracted.body) {
+    const audit = {
+      bodyKind: extracted.reason || "body_not_buffer",
+      signatureOk: false,
+      signatureReason: extracted.reason || "body_not_buffer",
+      httpStatus: 403,
+      ...peekMessaging(undefined, req.body),
+    };
+    res.locals.inboundAudit = audit;
+    await persistAudit(audit);
+    res.status(403).json({ error: "Invalid webhook signature or timestamp" }); return;
+  }
+  const diagnosed = verifyTelnyxDiagnose(
+    extracted.body,
+    req.get("telnyx-signature-ed25519"),
+    req.get("telnyx-timestamp"),
+    process.env.TELNYX_PUBLIC_KEY,
+  );
+  const audit = {
+    bodyKind: extracted.reason || "ok",
+    signatureOk: diagnosed.ok,
+    signatureReason: diagnosed.reason,
+    ...peekMessaging(extracted.body, undefined),
+  };
+  res.locals.inboundAudit = audit;
+  if (!diagnosed.ok) {
+    await persistAudit({ ...audit, httpStatus: 403 });
     res.status(403).json({ error: "Invalid webhook signature or timestamp" }); return;
   }
   next();
@@ -74,22 +141,38 @@ telnyxRouter.post("/voice/selection", raw, authenticated, async (req, res): Prom
   res.type("application/xml").send(xml);
 });
 telnyxRouter.post("/webhooks/telnyx/messaging", raw, authenticated, async (req, res): Promise<void> => {
-  if (!req.is("application/json")) throw new DemoError(415, "Expected JSON");
-  let parsed: unknown;
-  try { parsed = JSON.parse((req.body as Buffer).toString("utf8")); }
-  catch { throw new DemoError(400, "Invalid JSON"); }
-  const event = messagingInput(parsed), payload = event.data.payload;
-  const inbound = event.data.event_type === "message.received";
-  const configured = businesses();
-  const number = inbound
-    ? (payload.to.map(entry => entry.phone_number).find(n => configured.some(b => b.number === n))
-      || payload.to[0].phone_number)
-    : payload.from.phone_number;
-  const business = findBusiness(number);
-  // Persist consent/opt-out/message and its notification job BEFORE 2xx.
-  await recordMessage(storage(), business, event);
-  await startJobs(business);
-  res.sendStatus(200);
+  const audit = { ...(res.locals.inboundAudit || {}) };
+  try {
+    if (!req.is("application/json") && !(Buffer.isBuffer(req.body))) throw new DemoError(415, "Expected JSON");
+    let parsed: unknown;
+    try { parsed = JSON.parse((req.body as Buffer).toString("utf8")); }
+    catch { throw new DemoError(400, "Invalid JSON"); }
+    const event = messagingInput(parsed), payload = event.data.payload;
+    const inbound = event.data.event_type === "message.received";
+    const configured = businesses();
+    const number = inbound
+      ? (payload.to.map(entry => entry.phone_number).find(n => configured.some(b => b.number === n))
+        || payload.to[0].phone_number)
+      : payload.from.phone_number;
+    const business = findBusiness(number);
+    const recorded = await recordMessage(storage(), business, event);
+    const sends = inbound ? await startJobs(business) : undefined;
+    const send = sends?.smsSends?.[0];
+    await persistAudit({
+      ...audit,
+      eventType: event.data.event_type,
+      greetingMatched: recorded.greetingMatched,
+      jobQueued: recorded.jobQueued,
+      sendStatus: send?.status,
+      sendError: send?.error,
+      httpStatus: 200,
+    });
+    res.sendStatus(200);
+  } catch (error) {
+    const status = error instanceof DemoError ? error.status : 503;
+    await persistAudit({ ...audit, httpStatus: status, sendError: error instanceof DemoError ? error.message : "handler_failed" });
+    throw error;
+  }
 });
 telnyxRouter.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
   if (error instanceof DemoError) {

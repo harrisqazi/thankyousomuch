@@ -6,6 +6,7 @@
     { "source": "/voice/:path*", "destination": "/api/voice/:path*" },
     { "source": "/webhooks/telnyx/:path*", "destination": "/api/webhooks/telnyx/:path*" },
     { "source": "/health", "destination": "/api/health" },
+    { "source": "/health/inbound", "destination": "/api/health/inbound" },
     { "source": "/privacy", "destination": "/privacy.html" },
     { "source": "/privacy/", "destination": "/privacy.html" },
     { "source": "/sms-terms", "destination": "/sms-terms.html" },

@@ -10,10 +10,13 @@ type Dependencies = {
   kinds?: Array<Job["kind"]>;
 };
 
+export type SmsSendResult = { status: Job["status"]; error?: string };
+
 /** Durable claims: crashed/ambiguous external operations are NEVER auto-resent. */
-export async function processJobs(store: StateStore, business: Business, deps: Dependencies) {
+export async function processJobs(store: StateStore, business: Business, deps: Dependencies): Promise<{ smsSends: SmsSendResult[] }> {
   const env = deps.env || process.env;
   const now = deps.now || (() => new Date());
+  const smsSends: SmsSendResult[] = [];
   // Bound one serverless invocation; run the recovery command for larger queues.
   for (let i = 0; i < 25; i++) {
     const job = await store.transaction(business.id, state => {
@@ -24,17 +27,20 @@ export async function processJobs(store: StateStore, business: Business, deps: D
       if (pending.kind === "sms") {
         const consent = state.consents[key(pending.caller)];
         if (!consent || consent.revokedAt || state.optOuts[key(pending.caller)]) {
-          pending.status = "suppressed"; pending.error = "no_active_consent"; return { skip: true } as const;
+          pending.status = "suppressed"; pending.error = "no_active_consent";
+          return { skip: true, kind: pending.kind, status: pending.status, error: pending.error } as const;
         }
         if (!liveSending(env) || business.outboundSmsApproved !== true) {
-          pending.status = "dry_run"; pending.finishedAt = at.toISOString(); return { skip: true } as const;
+          pending.status = "dry_run"; pending.finishedAt = at.toISOString();
+          return { skip: true, kind: pending.kind, status: pending.status, error: pending.error } as const;
         }
         const attempts = Object.values(state.jobs).filter(j => j.kind === "sms" && j.claimedAt
           && j.caller === pending.caller);
         const hourly = attempts.filter(j => at.getTime() - Date.parse(j.claimedAt!) < 3_600_000).length;
         const daily = attempts.filter(j => at.getTime() - Date.parse(j.claimedAt!) < 86_400_000).length;
         if (hourly >= contactHourlyLimit(env) || daily >= contactDailyLimit(env)) {
-          pending.status = "suppressed"; pending.error = "sending_limit"; return { skip: true } as const;
+          pending.status = "suppressed"; pending.error = "sending_limit";
+          return { skip: true, kind: pending.kind, status: pending.status, error: pending.error } as const;
         }
       }
       pending.status = "processing";
@@ -42,7 +48,10 @@ export async function processJobs(store: StateStore, business: Business, deps: D
       return { job: structuredClone(pending) };
     });
     if (!job) break;
-    if ("skip" in job) continue;
+    if ("skip" in job) {
+      if (job.kind === "sms") smsSends.push({ status: job.status, error: job.error });
+      continue;
+    }
     let result: { id: string } | undefined;
     let failure: string | undefined;
     let status: Job["status"] = "accepted";
@@ -75,7 +84,9 @@ export async function processJobs(store: StateStore, business: Business, deps: D
           saved.finishedAt, randomUUID());
       }
     });
+    if (job.job.kind === "sms") smsSends.push({ status, error: failure });
   }
+  return { smsSends };
 }
 export class SmsRejected extends Error {
   constructor(public code: string) { super(code); }
