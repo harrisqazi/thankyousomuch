@@ -94,7 +94,35 @@ export function isGreetingOnly(text: string): boolean {
   return /^(hi|hello|hey)[\s!.?,]*$/i.test(inboundText(text));
 }
 
-export function parseNameAndNumber(text: string, previous: LeadDetails): LeadDetails {
+export function looksLikePersonName(value: string): boolean {
+  const name = inboundText(value);
+  if (!name || name.length < 2 || name.length > 80) return false;
+  if (/^(hi|hello|hey)$/i.test(name)) return false;
+  if (!/^[A-Za-z][A-Za-z' -]*$/.test(name)) return false;
+  const words = name.split(/\s+/).filter(Boolean);
+  if (words.length < 1 || words.length > 4) return false;
+  const banned = /^(hi|hello|hey|help|info|stop|call|you|your|please|thanks|thank|business)$/i;
+  return words.every(word => word.length >= 2 && !banned.test(word));
+}
+
+/** 10 or 11 digits, including a leading 1 or a one-digit typo. */
+export function parseCallbackDigits(text: string): string | undefined {
+  const runs = [
+    ...text.matchAll(/\+?\d[\d().\s-]{8,16}\d/g),
+  ].map(match => match[0].replace(/\D/g, "")).filter(d => d.length === 10 || d.length === 11);
+  const compact = text.replace(/\D/g, "");
+  if (compact.length === 10 || compact.length === 11) runs.push(compact);
+  const eleven = compact.match(/1\d{10}/);
+  if (eleven) runs.push(eleven[0]);
+  const ten = compact.match(/\d{10,11}/);
+  if (ten) runs.push(ten[0]);
+  const pick = runs.sort((a, b) => b.length - a.length)[0];
+  if (!pick) return undefined;
+  if (pick.length === 11 && pick.startsWith("1")) return `+${pick}`;
+  return pick;
+}
+
+export function parseNameAndNumber(text: string, previous: LeadDetails, fallbackNumber?: string): LeadDetails {
   const lead = { ...previous };
   const labeled = /(?:^|[;\n,])\s*(name|business|callback|preferred call\s?back number)\s*:\s*([^;\n,]+)/gi;
   for (const match of text.matchAll(labeled)) {
@@ -103,18 +131,21 @@ export function parseNameAndNumber(text: string, previous: LeadDetails): LeadDet
     const label = match[1].toLowerCase();
     if (label === "name") lead.customerName = value;
     else if (label === "business") lead.businessName = value;
-    else if (/^[+\d().\s-]+$/.test(value) && value.replace(/\D/g, "").length >= 7) {
-      lead.preferredCallbackNumber = value;
+    else if (/^[+\d().\s-]+$/.test(value) && value.replace(/\D/g, "").length >= 10) {
+      lead.preferredCallbackNumber = parseCallbackDigits(value) ? value.trim() : value;
     }
   }
-  const phone = text.match(/(?:\+?1[-.\s]*)?(?:\(?\d{3}\)?[-.\s]*)\d{3}[-.\s]*\d{4}/);
-  if (phone && !lead.preferredCallbackNumber) lead.preferredCallbackNumber = phone[0].trim();
+  const digits = parseCallbackDigits(text);
+  if (digits && !lead.preferredCallbackNumber) lead.preferredCallbackNumber = digits;
   if (!lead.customerName) {
-    const withoutPhone = text.replace(phone?.[0] || "", " ").replace(/name\s*:/i, " ");
-    const name = withoutPhone.replace(/[^A-Za-z' -]+/g, " ").replace(/\s+/g, " ").trim();
-    if (name && !/^(hi|hello|hey)$/i.test(name) && name.length >= 2 && name.length <= 80) {
+    const stripped = text.replace(/\+?\d[\d().\s-]{8,16}\d/g, " ").replace(/name\s*:/i, " ");
+    const name = stripped.replace(/[^A-Za-z' -]+/g, " ").replace(/\s+/g, " ").trim();
+    if (looksLikePersonName(name) || (name && !/^(hi|hello|hey)$/i.test(name) && name.length >= 2 && name.length <= 80 && digits)) {
       lead.customerName = name;
     }
+  }
+  if (!lead.preferredCallbackNumber && fallbackNumber && looksLikePersonName(lead.customerName || "")) {
+    lead.preferredCallbackNumber = fallbackNumber;
   }
   return lead;
 }

@@ -175,6 +175,20 @@ test("BOM and trailing newline still match HI", async () => {
   assert.match(sms[0].text, /recuperate your lost leads/i);
 });
 
+test("11-digit typo and name-only still offer slots using the sending number if needed", async () => {
+  const store = memoryStore();
+  await recordMessage(store, business, received("harris qazi 85896840478", "typo-11"));
+  const typo = stateOf(store);
+  assert.equal(typo.leads?.[key(input.From)]?.smsFlow, "awaiting_slot");
+  assert.equal(typo.leads?.[key(input.From)]?.preferredCallbackNumber, "85896840478");
+  assert.match(Object.values(typo.jobs).filter(j => j.kind === "sms")[0].text, /select one of the following times/);
+  const store2 = memoryStore();
+  await recordMessage(store2, business, received("Harris Qazi", "name-only"));
+  const named = stateOf(store2);
+  assert.equal(named.leads?.[key(input.From)]?.preferredCallbackNumber, input.From);
+  assert.equal(named.leads?.[key(input.From)]?.smsFlow, "awaiting_slot");
+});
+
 test("name and number with no prior HI still offers slots", async () => {
   const store = memoryStore();
   await recordMessage(store, business, received("Harris 2025550199", "cold-details"));
@@ -542,10 +556,14 @@ test("HTTP endpoint rejects unsigned requests without changing the existing site
   const address = server.address(); assert.ok(address && typeof address !== "string");
   const base = `http://127.0.0.1:${address.port}`;
   try {
-    for (const path of ["/voice/incoming", "/voice/selection", "/webhooks/telnyx/messaging"]) {
+    for (const path of ["/voice/incoming", "/voice/selection"]) {
       const response = await fetch(base + path, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
-      assert.ok([403, 503].includes(response.status));
+      assert.equal(response.status, 200);
+      assert.match(response.headers.get("content-type") || "", /xml/);
+      assert.match(await response.text(), /unable to complete this call/i);
     }
+    const messaging = await fetch(base + "/webhooks/telnyx/messaging", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+    assert.ok([403, 503].includes(messaging.status));
     const response = await fetch(base + "/unrelated", { method: "POST", headers: { "Content-Type": "application/json" }, body: '{"ok":true}' });
     assert.deepEqual(await response.json(), { ok: true });
   } finally { await new Promise<void>((resolve, reject) => server.close(err => err ? reject(err) : resolve())); }

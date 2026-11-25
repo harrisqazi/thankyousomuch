@@ -17,6 +17,14 @@ export function publicHandlerError(error: unknown): string {
   return `${error.name}: ${msg}`.slice(0, 160);
 }
 
+const voiceSorry = `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="woman" language="en-US">We're unable to complete this call right now. Please text HI to this number to book a time.</Say><Hangup/></Response>`;
+function isVoice(req: Request) {
+  return /\/voice\//.test(`${req.originalUrl || ""}${req.path || ""}`);
+}
+function sendVoice(res: Response, xml: string) {
+  res.status(200).type("application/xml").send(xml);
+}
+
 export function createTelnyxRouter(
   startJobs: typeof startRuntimeJobs = startRuntimeJobs,
   getStore: typeof storage = storage,
@@ -100,6 +108,7 @@ async function authenticated(req: Request, res: Response, next: NextFunction) {
   const extracted = rawWebhookBody(req);
   if (extracted.body) req.body = extracted.body;
   if (!process.env.TELNYX_PUBLIC_KEY) {
+    if (isVoice(req)) { sendVoice(res, voiceSorry); return; }
     res.status(503).json({ error: "Webhook verification is not configured" }); return;
   }
   if (!extracted.body) {
@@ -112,6 +121,7 @@ async function authenticated(req: Request, res: Response, next: NextFunction) {
     };
     res.locals.inboundAudit = audit;
     await persistAudit(audit);
+    if (isVoice(req)) { sendVoice(res, voiceSorry); return; }
     res.status(403).json({ error: "Invalid webhook signature or timestamp" }); return;
   }
   const diagnosed = verifyTelnyxDiagnose(
@@ -129,6 +139,7 @@ async function authenticated(req: Request, res: Response, next: NextFunction) {
   res.locals.inboundAudit = audit;
   if (!diagnosed.ok) {
     await persistAudit({ ...audit, httpStatus: 403 });
+    if (isVoice(req)) { sendVoice(res, voiceSorry); return; }
     res.status(403).json({ error: "Invalid webhook signature or timestamp" }); return;
   }
   next();
@@ -146,15 +157,23 @@ function findBusiness(number: string) {
   return business;
 }
 telnyxRouter.post("/voice/incoming", raw, authenticated, async (req, res): Promise<void> => {
-  const input = form(req);
-  const xml = await incomingCall(getStore(), findBusiness(input.To), input);
-  res.type("application/xml").send(xml);
+  try {
+    const input = form(req);
+    const xml = await incomingCall(getStore(), findBusiness(input.To), input);
+    sendVoice(res, xml);
+  } catch {
+    sendVoice(res, voiceSorry);
+  }
 });
 telnyxRouter.post("/voice/selection", raw, authenticated, async (req, res): Promise<void> => {
-  const input = form(req), business = findBusiness(input.To);
-  const xml = await recordSelection(getStore(), business, input);
-  await startJobs(business);
-  res.type("application/xml").send(xml);
+  try {
+    const input = form(req), business = findBusiness(input.To);
+    const xml = await recordSelection(getStore(), business, input);
+    await startJobs(business, getStore());
+    sendVoice(res, xml);
+  } catch {
+    sendVoice(res, voiceSorry);
+  }
 });
 telnyxRouter.post("/webhooks/telnyx/messaging", raw, authenticated, async (req, res): Promise<void> => {
   const audit = { ...(res.locals.inboundAudit || {}) };
@@ -195,7 +214,8 @@ telnyxRouter.post("/webhooks/telnyx/messaging", raw, authenticated, async (req, 
     throw error;
   }
 });
-telnyxRouter.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
+telnyxRouter.use((error: unknown, req: Request, res: Response, _next: NextFunction) => {
+  if (isVoice(req)) { sendVoice(res, voiceSorry); return; }
   if (error instanceof DemoError) {
     res.status(error.status).json({ error: error.message }); return;
   }

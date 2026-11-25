@@ -32,7 +32,9 @@ test("real PostgreSQL + signed HTTP forms persist consent atomically and dry-run
   }
   try {
     const fields = { From: "+12025550123", To: business.number, CallSid: "synthetic-db-test" };
-    assert.equal((await post("/voice/incoming", fields, true)).status, 403);
+    const tampered = await post("/voice/incoming", fields, true);
+    assert.equal(tampered.status, 200);
+    assert.match(await tampered.text(), /unable to complete this call/i);
     const response = await post("/voice/incoming", fields);
     assert.equal(response.status, 200);
     assert.match(response.headers.get("content-type") || "", /xml/);

@@ -10,9 +10,9 @@ function fakeBackend() {
   let counter = 0;
   const io: BlobBackend = {
     async read(path) { return data.has(path) ? structuredClone(data.get(path)!) : null; },
-    async write(path, state, etag) {
+    async write(path, state, etag, overwrite = false) {
       const current = data.get(path);
-      if (current?.etag !== etag) throw new StateConflict();
+      if (!overwrite && current?.etag !== etag) throw new StateConflict();
       data.set(path, { state: structuredClone(state), etag: String(++counter) });
     },
     async health() { return true; },
@@ -65,7 +65,7 @@ test("preview and production cannot read each other's demo records", async () =>
 test("ambiguous Blob write errors are not replayed automatically", async () => {
   const { io } = fakeBackend(); let mutations = 0;
   io.write = async () => { throw new Error("uncertain network response"); };
-  await assert.rejects(createBlobStore(io).transaction("demo", () => { mutations++; }), /uncertain/);
+  await assert.rejects(createBlobStore(io).transaction("demo", s => { mutations++; s.events.x = "1"; }), /uncertain/);
   assert.equal(mutations, 1);
 });
 test("unreadable blob snapshots do not 503 the webhook", async () => {
@@ -90,8 +90,27 @@ test("incomplete blob snapshots are normalized instead of failing the webhook", 
   }), 2);
 });
 
-test("exhausted write conflicts fail closed instead of overwriting another request", async () => {
+test("exhausted write conflicts overwrite a merged snapshot instead of 503", async () => {
+  const { io, data } = fakeBackend();
+  let writes = 0;
+  const inner = io.write;
+  io.write = async (path, state, etag, overwrite) => {
+    writes++;
+    if (!overwrite) throw new StateConflict();
+    return inner.call(io, path, state, etag, overwrite);
+  };
+  await createBlobStore(io).transaction("demo", s => { s.events.saved = "ok"; });
+  assert.equal(data.get("telnyx-demo/v1/development/demo.json")?.state.events.saved, "ok");
+  assert.ok(writes > 8);
+});
+
+test("duplicate no-op transactions do not write", async () => {
   const { io } = fakeBackend();
-  io.write = async () => { throw new StateConflict(); };
-  await assert.rejects(createBlobStore(io).transaction("demo", () => undefined), /busy/);
+  const store = createBlobStore(io);
+  await store.transaction("demo", s => { s.events.a = "1"; });
+  let writes = 0;
+  const inner = io.write;
+  io.write = async (...args) => { writes++; return inner.call(io, ...args); };
+  await store.transaction("demo", s => { s.events.a = "1"; });
+  assert.equal(writes, 0);
 });

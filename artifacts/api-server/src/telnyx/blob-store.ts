@@ -2,10 +2,22 @@ import { get, put, list, BlobPreconditionFailedError } from "@vercel/blob";
 import { setTimeout as delay } from "node:timers/promises";
 import { emptyState, normalizeDemoState, type DemoState, type StateStore } from "./state";
 
+export function mergeDemoState(base: DemoState, overlay: DemoState): DemoState {
+  return {
+    calls: { ...base.calls, ...overlay.calls },
+    consents: { ...base.consents, ...overlay.consents },
+    optOuts: { ...base.optOuts, ...overlay.optOuts },
+    events: { ...base.events, ...overlay.events },
+    messages: { ...base.messages, ...overlay.messages },
+    jobs: { ...base.jobs, ...overlay.jobs },
+    leads: { ...base.leads, ...overlay.leads },
+  };
+}
+
 export type Snapshot = { state: DemoState; etag?: string };
 export type BlobBackend = {
   read(path: string): Promise<Snapshot | null>;
-  write(path: string, state: DemoState, etag?: string): Promise<void>;
+  write(path: string, state: DemoState, etag?: string, overwrite?: boolean): Promise<void>;
   health(): Promise<boolean>;
 };
 export class StateConflict extends Error {}
@@ -32,24 +44,22 @@ const backend: BlobBackend = {
       }
       return { state: normalizeDemoState(parsed), etag };
     } catch {
-      // An unreadable snapshot must not 503 the webhook; CAS write may still conflict.
       return null;
     }
   },
-  async write(path, state, etag) {
+  async write(path, state, etag, overwrite = false) {
     try {
       await put(path, JSON.stringify(state), {
         access: "private", addRandomSuffix: false, contentType: "application/json",
-        // Never use an unconditional overwrite: this is a cross-instance CAS lock.
-        ...(etag ? { ifMatch: etag } : { allowOverwrite: false }),
+        ...(overwrite ? { allowOverwrite: true } : etag ? { ifMatch: etag } : { allowOverwrite: false }),
         abortSignal: AbortSignal.timeout(8000),
       });
     } catch (error) {
-      if (error instanceof BlobPreconditionFailedError
-        || (!etag && error instanceof Error && /already exists/i.test(error.message))) {
+      if (!overwrite && (error instanceof BlobPreconditionFailedError
+        || (!etag && error instanceof Error && /already exists/i.test(error.message)))) {
         throw new StateConflict();
       }
-      // An ambiguous write may have committed. Do not automatically replay it.
+      if (overwrite) throw error;
       throw error;
     }
   },
@@ -62,30 +72,44 @@ const backend: BlobBackend = {
   },
 };
 
+function fingerprint(state: DemoState) {
+  return JSON.stringify(state);
+}
+
 export function createBlobStore(io: BlobBackend = backend): StateStore {
   return {
     async transaction<T>(businessId: string, change: (state: DemoState) => T): Promise<T> {
       if (!/^[a-z0-9-]{1,60}$/.test(businessId)) throw new Error("Invalid business ID");
       const path = `${prefix()}${businessId}.json`;
-      for (let attempt = 0; attempt < 12; attempt++) {
-        let snapshot: Snapshot | null = null;
-        try {
-          snapshot = await io.read(path);
-        } catch {
-          snapshot = null;
-        }
+      const run = (snapshot: Snapshot | null) => {
         const state = normalizeDemoState(snapshot?.state || emptyState());
-        const value = change(state); // Must be synchronous and free of external side effects.
+        const before = fingerprint(state);
+        const value = change(state);
         if (Buffer.byteLength(JSON.stringify(state)) > 8_000_000) throw new Error("Demo storage needs archival");
+        return { state, value, unchanged: fingerprint(state) === before };
+      };
+      const read = async () => {
+        try { return await io.read(path); } catch { return null; }
+      };
+      for (let attempt = 0; attempt < 8; attempt++) {
+        const snapshot = await read();
+        const next = run(snapshot);
+        if (next.unchanged) return next.value;
         try {
-          await io.write(path, state, snapshot?.etag);
-          return value;
+          await io.write(path, next.state, snapshot?.etag, false);
+          return next.value;
         } catch (error) {
           if (!(error instanceof StateConflict)) throw error;
-          await delay(Math.min(20 * (attempt + 1), 150));
+          await delay(Math.min(20 * (attempt + 1), 80));
         }
       }
-      throw new Error("Demo storage busy; webhook must retry");
+      const snapshot = await read();
+      const next = run(snapshot);
+      if (next.unchanged) return next.value;
+      const latest = await read();
+      const merged = mergeDemoState(normalizeDemoState(latest?.state || emptyState()), next.state);
+      await io.write(path, merged, latest?.etag, true);
+      return next.value;
     },
     health: () => io.health(),
   };

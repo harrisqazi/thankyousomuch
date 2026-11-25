@@ -249,7 +249,7 @@ export async function recordMessage(store: StateStore, business: Business, event
         }
       }
       if (!isControl && !jobQueued && !state.optOuts[callerKey]) {
-        const parsed = parseNameAndNumber(text, lead);
+        const parsed = parseNameAndNumber(text, lead, caller);
         const hasDetails = Boolean(parsed.customerName && parsed.preferredCallbackNumber);
         if (hasDetails && lead.smsFlow !== "booked") {
           lead = parsed;
