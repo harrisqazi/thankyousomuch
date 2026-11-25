@@ -15,11 +15,24 @@ telnyxRouter.get("/health", async (_req, res): Promise<void> => {
   try { storageReady = await storage().health(); } catch { /* report unavailable without exposing credentials */ }
   const configured = businesses();
   const outboundSmsEnabled = liveSending() && configured.some(business => business.outboundSmsApproved);
+  let outboundKeyAccepted: boolean | "unknown" = false;
+  if (process.env.TELNYX_API_KEY) {
+    try {
+      const probe = await fetch("https://api.telnyx.com/v2/messaging_profiles?page[size]=1", {
+        headers: { Authorization: `Bearer ${process.env.TELNYX_API_KEY}` },
+        signal: AbortSignal.timeout(4000),
+      });
+      outboundKeyAccepted = probe.status === 401 || probe.status === 403 ? false : probe.ok;
+    } catch {
+      outboundKeyAccepted = "unknown";
+    }
+  }
   res.set("Cache-Control", "no-store").json({
     service: "tysm-telnyx-demo", storageReady,
     storageBackend: process.env.TELNYX_STORAGE_BACKEND || "postgres",
     webhookVerificationConfigured: Boolean(process.env.TELNYX_PUBLIC_KEY),
     outboundSmsEnabled,
+    outboundKeyAccepted,
     mode: outboundSmsEnabled ? "live" : "dry_run",
     configuredBusinessCount: configured.length,
     approvedBusinessCount: configured.filter(business => business.outboundSmsApproved).length,

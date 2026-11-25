@@ -89,7 +89,7 @@ export async function sendSms(business: Business, job: Job): Promise<{ id: strin
       "Idempotency-Key": job.id,
     },
     body: JSON.stringify({
-      from: business.number, to: job.caller, messaging_profile_id: business.profileId,
+      from: business.number, to: job.caller,
       text: job.text, type: "SMS", use_profile_webhooks: true,
     }),
     signal: AbortSignal.timeout(8000),
