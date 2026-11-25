@@ -5,8 +5,8 @@
   "rewrites": [
     { "source": "/voice/:path*", "destination": "/api/voice/:path*" },
     { "source": "/webhooks/telnyx/:path*", "destination": "/api/webhooks/telnyx/:path*" },
-    { "source": "/health", "destination": "/api/health" },
     { "source": "/health/inbound", "destination": "/api/health/inbound" },
+    { "source": "/health", "destination": "/api/health" },
     { "source": "/privacy", "destination": "/privacy.html" },
     { "source": "/privacy/", "destination": "/privacy.html" },
     { "source": "/sms-terms", "destination": "/sms-terms.html" },
@@ -16,6 +16,7 @@
     "api/[...path].js": { "maxDuration": 60 },
     "api/voice/incoming.js": { "maxDuration": 60 },
     "api/voice/selection.js": { "maxDuration": 60 },
-    "api/webhooks/telnyx/messaging.js": { "maxDuration": 60 }
+    "api/webhooks/telnyx/messaging.js": { "maxDuration": 60 },
+    "api/health/inbound.js": { "maxDuration": 60 }
   }
 }
