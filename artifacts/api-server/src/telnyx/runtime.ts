@@ -17,8 +17,7 @@ export async function notify(business: Business, job: Job) {
   }, business.recipient);
 }
 
-export async function startJobs(business: Business) {
-  const store = storage();
+export async function startJobs(business: Business, store: ReturnType<typeof storage> = storage()) {
   const onFail = () => {
     // No raw payload, telephone number, message, SQL, or credential in logs.
     logger.error({ event: "telnyx_outbox_needs_review", businessId: business.id });

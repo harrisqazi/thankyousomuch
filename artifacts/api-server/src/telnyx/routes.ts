@@ -55,7 +55,11 @@ telnyxRouter.get("/health", async (_req, res): Promise<void> => {
 });
 telnyxRouter.get("/health/inbound", async (_req, res): Promise<void> => {
   const inbound = await listInboundAudit().catch(() => []);
-  res.set("Cache-Control", "no-store").json({ inbound, count: inbound.length });
+  res.set("Cache-Control", "no-store").json({
+    gitSha: process.env.VERCEL_GIT_COMMIT_SHA || null,
+    inbound,
+    count: inbound.length,
+  });
 });
 const raw = express.raw({ type: ["application/json", "application/x-www-form-urlencoded"], limit: "64kb" });
 function peekMessaging(body: Buffer | undefined, parsedBody: unknown) {
@@ -168,7 +172,7 @@ telnyxRouter.post("/webhooks/telnyx/messaging", raw, authenticated, async (req, 
       : payload.from.phone_number;
     const business = findBusiness(number);
     const recorded = await recordMessage(getStore(), business, event);
-    const sends = inbound ? await startJobs(business) : undefined;
+    const sends = inbound ? await startJobs(business, getStore()) : undefined;
     const send = sends?.smsSends?.[0];
     await persistAudit({
       ...audit,
