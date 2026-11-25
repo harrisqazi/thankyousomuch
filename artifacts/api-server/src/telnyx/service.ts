@@ -224,27 +224,17 @@ export async function recordMessage(store: StateStore, business: Business, event
       let jobQueued = false;
       const isControl = ["STOP", "STOPALL", "STOP ALL", "UNSUBSCRIBE", "CANCEL", "END", "QUIT", "START", "UNSTOP", "HELP", "INFO"].includes(keyword);
       let lead = isControl ? existingLead : updateLead(existingLead, text);
-      // An inbound greeting authorizes an inquiry response, not a marketing campaign.
-      // A greeting never overrides STOP; only a newer explicit START can unblock.
-      if (!isControl && !state.optOuts[callerKey]
-        && (isGreetingOnly(text) || (greeting && lead.smsFlow !== "awaiting_details" && lead.smsFlow !== "awaiting_slot"))) {
+      const grantInquiry = () => {
         state.consents[callerKey] = {
           caller, called: business.number, callId: p.id, consentedAt: d.occurred_at,
           disclosure: "Customer initiated an inquiry by SMS; response limited to this inquiry.",
           disclosureVersion: "inbound-inquiry-v2", action: "inbound-inquiry",
         };
-        lead = { ...lead, smsFlow: "awaiting_details", offeredSlots: undefined, appointment: undefined };
-        enqueue(state, "sms", caller, inboundGreetingText, d.occurred_at, key(`inbound-intro:${p.id}`));
-        jobQueued = true;
-      } else if (!isControl && !state.optOuts[callerKey] && lead.smsFlow === "awaiting_details") {
-        lead = parseNameAndNumber(text, lead);
-        if (lead.customerName && lead.preferredCallbackNumber) {
-          const slots = offerSlots(new Date(d.occurred_at));
-          lead = { ...lead, smsFlow: "awaiting_slot", offeredSlots: slots };
-          enqueue(state, "sms", caller, slotPrompt(slots), d.occurred_at, key(`inbound-slots:${p.id}`));
-          jobQueued = true;
-        }
-      } else if (!isControl && !state.optOuts[callerKey] && lead.smsFlow === "awaiting_slot" && lead.offeredSlots?.length) {
+      };
+      // An inbound greeting authorizes an inquiry response, not a marketing campaign.
+      // A greeting never overrides STOP; only a newer explicit START can unblock.
+      // Name+number with no prior HI still books: skip the opener and send slots.
+      if (!isControl && !state.optOuts[callerKey] && lead.smsFlow === "awaiting_slot" && lead.offeredSlots?.length) {
         const slot = matchSlot(text, lead.offeredSlots);
         if (slot) {
           lead = {
@@ -256,6 +246,25 @@ export async function recordMessage(store: StateStore, business: Business, event
           const booked = enqueue(state, "email", caller, appointmentEmail(lead, slot),
             d.occurred_at, key(`appointment:${p.id}`));
           state.jobs[booked].lead = structuredClone(lead);
+        }
+      }
+      if (!isControl && !jobQueued && !state.optOuts[callerKey]) {
+        const parsed = parseNameAndNumber(text, lead);
+        const hasDetails = Boolean(parsed.customerName && parsed.preferredCallbackNumber);
+        if (hasDetails && lead.smsFlow !== "booked") {
+          lead = parsed;
+          grantInquiry();
+          const slots = offerSlots(new Date(d.occurred_at));
+          lead = { ...lead, smsFlow: "awaiting_slot", offeredSlots: slots };
+          enqueue(state, "sms", caller, slotPrompt(slots), d.occurred_at, key(`inbound-slots:${p.id}`));
+          jobQueued = true;
+        } else if (lead.smsFlow === "awaiting_details") {
+          lead = parsed;
+        } else if (isGreetingOnly(text) || (greeting && lead.smsFlow !== "awaiting_slot")) {
+          grantInquiry();
+          lead = { ...lead, smsFlow: "awaiting_details", offeredSlots: undefined, appointment: undefined };
+          enqueue(state, "sms", caller, inboundGreetingText, d.occurred_at, key(`inbound-intro:${p.id}`));
+          jobQueued = true;
         }
       }
       state.leads[callerKey] = lead;

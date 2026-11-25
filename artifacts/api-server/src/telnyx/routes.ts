@@ -171,6 +171,11 @@ telnyxRouter.post("/webhooks/telnyx/messaging", raw, authenticated, async (req, 
         || payload.to[0].phone_number)
       : payload.from.phone_number;
     const business = findBusiness(number);
+    await persistAudit({
+      ...audit,
+      eventType: event.data.event_type,
+      httpStatus: 202,
+    });
     const recorded = await recordMessage(getStore(), business, event);
     const sends = inbound ? await startJobs(business, getStore()) : undefined;
     const send = sends?.smsSends?.[0];

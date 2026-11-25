@@ -68,6 +68,16 @@ test("ambiguous Blob write errors are not replayed automatically", async () => {
   await assert.rejects(createBlobStore(io).transaction("demo", () => { mutations++; }), /uncertain/);
   assert.equal(mutations, 1);
 });
+test("unreadable blob snapshots do not 503 the webhook", async () => {
+  const { io } = fakeBackend();
+  io.read = async () => { throw new Error("Invalid demo snapshot"); };
+  const store = createBlobStore(io);
+  assert.equal(await store.transaction("demo", s => {
+    s.events.ok = "1";
+    return s.events.ok;
+  }), "1");
+});
+
 test("incomplete blob snapshots are normalized instead of failing the webhook", async () => {
   const { io, data } = fakeBackend();
   data.set("telnyx-demo/v1/development/demo.json", { state: { events: { a: "1" } } as never, etag: "1" });

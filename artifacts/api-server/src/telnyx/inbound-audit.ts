@@ -44,14 +44,19 @@ export async function appendInboundAudit(entry: InboundAudit): Promise<void> {
     const existing = await get(path, { access: "private", useCache: false, abortSignal: AbortSignal.timeout(8000) });
     if (existing?.statusCode === 200) {
       etag = existing.blob.etag;
-      const parsed = await new Response(existing.stream).json() as { entries?: InboundAudit[] };
-      entries = Array.isArray(parsed.entries) ? parsed.entries : [];
+      try {
+        const parsed = await new Response(existing.stream).json() as { entries?: InboundAudit[] };
+        entries = Array.isArray(parsed.entries) ? parsed.entries : [];
+      } catch {
+        entries = [];
+      }
     }
     const next = { entries: [entry, ...entries].slice(0, maxEntries) };
     try {
       await put(path, JSON.stringify(next), {
         access: "private", addRandomSuffix: false, contentType: "application/json",
-        ...(etag ? { ifMatch: etag } : { allowOverwrite: false }),
+        // Audit is observational. Prefer recording a 503 over losing it to CAS.
+        ...(attempt < 6 && etag ? { ifMatch: etag } : { allowOverwrite: true }),
         abortSignal: AbortSignal.timeout(8000),
       });
       return;
@@ -60,7 +65,7 @@ export async function appendInboundAudit(entry: InboundAudit): Promise<void> {
         || (!etag && error instanceof Error && /already exists/i.test(error.message))) {
         continue;
       }
-      return;
+      if (attempt === 7) return;
     }
   }
 }
@@ -69,6 +74,10 @@ export async function listInboundAudit(): Promise<InboundAudit[]> {
   if (!process.env.BLOB_READ_WRITE_TOKEN) return [];
   const existing = await get(auditPath(), { access: "private", useCache: false, abortSignal: AbortSignal.timeout(8000) });
   if (!existing || existing.statusCode !== 200) return [];
-  const parsed = await new Response(existing.stream).json() as { entries?: InboundAudit[] };
-  return Array.isArray(parsed.entries) ? parsed.entries.slice(0, maxEntries) : [];
+  try {
+    const parsed = await new Response(existing.stream).json() as { entries?: InboundAudit[] };
+    return Array.isArray(parsed.entries) ? parsed.entries.slice(0, maxEntries) : [];
+  } catch {
+    return [];
+  }
 }

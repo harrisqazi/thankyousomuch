@@ -2,7 +2,7 @@ import { get, put, list, BlobPreconditionFailedError } from "@vercel/blob";
 import { setTimeout as delay } from "node:timers/promises";
 import { emptyState, normalizeDemoState, type DemoState, type StateStore } from "./state";
 
-export type Snapshot = { state: DemoState; etag: string };
+export type Snapshot = { state: DemoState; etag?: string };
 export type BlobBackend = {
   read(path: string): Promise<Snapshot | null>;
   write(path: string, state: DemoState, etag?: string): Promise<void>;
@@ -17,16 +17,24 @@ const prefix = () => {
 
 const backend: BlobBackend = {
   async read(path) {
-    const result = await get(path, { access: "private", useCache: false, abortSignal: AbortSignal.timeout(8000) });
-    if (!result) return null;
-    if (result.statusCode !== 200 || result.blob.size > 8_000_000) throw new Error("Invalid demo snapshot");
-    let parsed: unknown;
     try {
-      parsed = await new Response(result.stream).json();
+      const result = await get(path, { access: "private", useCache: false, abortSignal: AbortSignal.timeout(8000) });
+      if (!result) return null;
+      const etag = result.blob?.etag;
+      if (result.statusCode !== 200 || result.blob.size > 8_000_000) {
+        return { state: emptyState(), etag };
+      }
+      let parsed: unknown;
+      try {
+        parsed = await new Response(result.stream).json();
+      } catch {
+        parsed = emptyState();
+      }
+      return { state: normalizeDemoState(parsed), etag };
     } catch {
-      parsed = emptyState();
+      // An unreadable snapshot must not 503 the webhook; CAS write may still conflict.
+      return null;
     }
-    return { state: normalizeDemoState(parsed), etag: result.blob.etag };
   },
   async write(path, state, etag) {
     try {
@@ -60,7 +68,12 @@ export function createBlobStore(io: BlobBackend = backend): StateStore {
       if (!/^[a-z0-9-]{1,60}$/.test(businessId)) throw new Error("Invalid business ID");
       const path = `${prefix()}${businessId}.json`;
       for (let attempt = 0; attempt < 12; attempt++) {
-        const snapshot = await io.read(path);
+        let snapshot: Snapshot | null = null;
+        try {
+          snapshot = await io.read(path);
+        } catch {
+          snapshot = null;
+        }
         const state = normalizeDemoState(snapshot?.state || emptyState());
         const value = change(state); // Must be synchronous and free of external side effects.
         if (Buffer.byteLength(JSON.stringify(state)) > 8_000_000) throw new Error("Demo storage needs archival");

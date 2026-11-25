@@ -175,6 +175,18 @@ test("BOM and trailing newline still match HI", async () => {
   assert.match(sms[0].text, /recuperate your lost leads/i);
 });
 
+test("name and number with no prior HI still offers slots", async () => {
+  const store = memoryStore();
+  await recordMessage(store, business, received("Harris 2025550199", "cold-details"));
+  const state = stateOf(store);
+  const sms = Object.values(state.jobs).filter(j => j.kind === "sms");
+  assert.equal(sms.length, 1);
+  assert.match(sms[0].text, /Thank you, please select one of the following times/);
+  assert.equal(state.leads?.[key(input.From)]?.smsFlow, "awaiting_slot");
+  assert.equal(state.leads?.[key(input.From)]?.customerName, "Harris");
+  assert.equal(state.consents[key(input.From)].action, "inbound-inquiry");
+});
+
 test("inbound hello then name and number offers slots and books a reply", async () => {
   const store = memoryStore();
   await recordMessage(store, business, received("HELLO", "hello-case"));
