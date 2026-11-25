@@ -6,6 +6,7 @@ import { businesses, liveSending } from "./config";
 import { verifyTelnyx, verifyTelnyxDiagnose } from "./auth";
 import { emptyState, key, type DemoState, type StateStore } from "./state";
 import { incomingCall, recordSelection, recordMessage, messagingInput, type MessagingEvent } from "./service";
+import { createTelnyxRouter, publicHandlerError } from "./routes";
 import { maskPhone, textPrefix } from "./inbound-audit";
 import { rawWebhookBody } from "./webhook-body";
 import { processJobs, SmsRejected } from "./worker";
@@ -456,6 +457,68 @@ test("malformed provider payloads are rejected", () => {
   for (const input of [{}, { data: {} }, { data: { payload: {} } }]) assert.throws(() => messagingInput(input));
   const bad = received(); bad.data.payload.direction = "outbound";
   assert.throws(() => messagingInput(bad));
+});
+
+test("publicHandlerError keeps SyntaxError Unexpected token instead of swallowing it", () => {
+  assert.match(publicHandlerError(new SyntaxError("Unexpected token < in JSON at position 0")), /SyntaxError: Unexpected token/);
+});
+
+test("signed inbound HI with memory store queues SMS; blob JSON SyntaxError is the 503", async () => {
+  const { publicKey, privateKey } = generateKeyPairSync("ed25519");
+  const pub = (publicKey.export({ format: "der", type: "spki" }) as Buffer).subarray(-32).toString("base64");
+  const previous = process.env.TELNYX_PUBLIC_KEY;
+  process.env.TELNYX_PUBLIC_KEY = pub;
+  const store = memoryStore();
+  const payload = received("Hi", "signed-hi");
+  const raw = Buffer.from(JSON.stringify(payload));
+  const timestamp = String(Math.floor(Date.now() / 1000));
+  const sig = sign(null, Buffer.concat([Buffer.from(`${timestamp}|`), raw]), privateKey).toString("base64");
+  const start = async () => ({ smsSends: [{ status: "accepted" as const }] });
+  const app = express();
+  app.use(createTelnyxRouter(start, () => store));
+  const server = app.listen(0, "127.0.0.1");
+  await new Promise<void>(resolve => server.once("listening", resolve));
+  const address = server.address(); assert.ok(address && typeof address !== "string");
+  try {
+    const ok = await fetch(`http://127.0.0.1:${address.port}/webhooks/telnyx/messaging`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "telnyx-timestamp": timestamp,
+        "telnyx-signature-ed25519": sig,
+      },
+      body: raw,
+    });
+    assert.equal(ok.status, 200);
+    assert.equal(Object.values(stateOf(store).jobs).filter(j => j.kind === "sms").length, 1);
+    const boom: StateStore = {
+      health: async () => true,
+      transaction: async () => { throw new SyntaxError("Unexpected token < in JSON at position 0"); },
+    };
+    const boomApp = express();
+    boomApp.use(createTelnyxRouter(start, () => boom));
+    const boomServer = boomApp.listen(0, "127.0.0.1");
+    await new Promise<void>(resolve => boomServer.once("listening", resolve));
+    const boomAddr = boomServer.address(); assert.ok(boomAddr && typeof boomAddr !== "string");
+    try {
+      const failed = await fetch(`http://127.0.0.1:${boomAddr.port}/webhooks/telnyx/messaging`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "telnyx-timestamp": timestamp,
+          "telnyx-signature-ed25519": sig,
+        },
+        body: raw,
+      });
+      assert.equal(failed.status, 503);
+      assert.match((await failed.json() as { error: string }).error, /could not safely store/i);
+    } finally {
+      await new Promise<void>((resolve, reject) => boomServer.close(err => err ? reject(err) : resolve()));
+    }
+  } finally {
+    if (previous === undefined) delete process.env.TELNYX_PUBLIC_KEY; else process.env.TELNYX_PUBLIC_KEY = previous;
+    await new Promise<void>((resolve, reject) => server.close(err => err ? reject(err) : resolve()));
+  }
 });
 
 test("HTTP endpoint rejects unsigned requests without changing the existing site parsers", async () => {

@@ -1,4 +1,3 @@
-import { waitUntil } from "@vercel/functions";
 import { sendInquiryEmail } from "../lib/inquiry-email";
 import { logger } from "../lib/logger";
 import type { Business } from "./config";
@@ -30,12 +29,6 @@ export async function startJobs(business: Business) {
     onFail();
     return { smsSends: [{ status: "uncertain" as const, error: "outbox_failed" }] };
   });
-  const mail = processJobs(store, business, { sendSms, notify, kinds: ["email"] }).catch(onFail);
-  try {
-    if (process.env.VERCEL) waitUntil(mail);
-    else await mail;
-  } catch {
-    void mail;
-  }
+  void processJobs(store, business, { sendSms, notify, kinds: ["email"] }).catch(onFail);
   return sms;
 }

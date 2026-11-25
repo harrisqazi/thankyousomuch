@@ -9,7 +9,18 @@ import { rawWebhookBody } from "./webhook-body";
 import { appendInboundAudit, listInboundAudit, maskPhone, textPrefix } from "./inbound-audit";
 
 // Tests inject a no-op dispatcher so signed synthetic requests cannot email or text.
-export function createTelnyxRouter(startJobs: typeof startRuntimeJobs = startRuntimeJobs) {
+export function publicHandlerError(error: unknown): string {
+  if (error instanceof DemoError) return error.message.slice(0, 120);
+  if (!(error instanceof Error)) return "handler_failed";
+  const msg = error.message.replace(/\+?\d{10,}/g, "***").slice(0, 120);
+  if (/KEY01|sk_live|BEGIN [A-Z]+ PRIVATE/i.test(msg)) return `${error.name}: redacted`;
+  return `${error.name}: ${msg}`.slice(0, 160);
+}
+
+export function createTelnyxRouter(
+  startJobs: typeof startRuntimeJobs = startRuntimeJobs,
+  getStore: typeof storage = storage,
+) {
 const telnyxRouter = Router();
 
 telnyxRouter.get("/health", async (_req, res): Promise<void> => {
@@ -38,6 +49,7 @@ telnyxRouter.get("/health", async (_req, res): Promise<void> => {
     mode: outboundSmsEnabled ? "live" : "dry_run",
     configuredBusinessCount: configured.length,
     approvedBusinessCount: configured.filter(business => business.outboundSmsApproved).length,
+    gitSha: process.env.VERCEL_GIT_COMMIT_SHA || null,
     // This endpoint reports readiness, not proof of a successful live call.
   });
 });
@@ -62,16 +74,6 @@ function peekMessaging(body: Buffer | undefined, parsedBody: unknown) {
     return {};
   }
 }
-function publicHandlerError(error: unknown): string {
-  if (error instanceof DemoError) return error.message.slice(0, 80);
-  if (error instanceof Error) {
-    const msg = error.message.replace(/\+?\d{7,}/g, "***").slice(0, 80);
-    if (/key|secret|token|bearer|authorization/i.test(msg)) return "handler_failed";
-    return msg || "handler_failed";
-  }
-  return "handler_failed";
-}
-
 async function persistAudit(entry: Record<string, unknown>) {
   await appendInboundAudit({
     at: new Date().toISOString(),
@@ -141,19 +143,19 @@ function findBusiness(number: string) {
 }
 telnyxRouter.post("/voice/incoming", raw, authenticated, async (req, res): Promise<void> => {
   const input = form(req);
-  const xml = await incomingCall(storage(), findBusiness(input.To), input);
+  const xml = await incomingCall(getStore(), findBusiness(input.To), input);
   res.type("application/xml").send(xml);
 });
 telnyxRouter.post("/voice/selection", raw, authenticated, async (req, res): Promise<void> => {
   const input = form(req), business = findBusiness(input.To);
-  const xml = await recordSelection(storage(), business, input);
+  const xml = await recordSelection(getStore(), business, input);
   await startJobs(business);
   res.type("application/xml").send(xml);
 });
 telnyxRouter.post("/webhooks/telnyx/messaging", raw, authenticated, async (req, res): Promise<void> => {
   const audit = { ...(res.locals.inboundAudit || {}) };
   try {
-    if (!req.is("application/json") && !(Buffer.isBuffer(req.body))) throw new DemoError(415, "Expected JSON");
+    if (!Buffer.isBuffer(req.body)) throw new DemoError(415, "Expected JSON");
     let parsed: unknown;
     try { parsed = JSON.parse((req.body as Buffer).toString("utf8")); }
     catch { throw new DemoError(400, "Invalid JSON"); }
@@ -165,7 +167,7 @@ telnyxRouter.post("/webhooks/telnyx/messaging", raw, authenticated, async (req, 
         || payload.to[0].phone_number)
       : payload.from.phone_number;
     const business = findBusiness(number);
-    const recorded = await recordMessage(storage(), business, event);
+    const recorded = await recordMessage(getStore(), business, event);
     const sends = inbound ? await startJobs(business) : undefined;
     const send = sends?.smsSends?.[0];
     await persistAudit({
