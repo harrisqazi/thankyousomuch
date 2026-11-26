@@ -11,6 +11,8 @@ import { PrivacyPage, SmsTermsPage } from './components/LegalPage';
 import { HeaderLeadMagnet } from './components/LeadMagnetCta';
 import { SmsCta } from './components/SmsCta';
 import { SmsDisclosures } from './components/SmsDisclosures';
+import { CheckoutCancelPage, CheckoutSuccessPage } from './components/CheckoutPages';
+import { formatCents, startCheckout, useCheckoutConfig } from './lib/checkout';
 import { useMenuEntryScroll } from './hooks/use-menu-entry-scroll';
 
 const queryClient = new QueryClient();
@@ -32,6 +34,10 @@ const emptyFields: InquiryFields = {
   message: '',
   website: '',
 };
+
+type DialogMode = 'inquiry' | 'ready';
+
+const isStandardProduct = (id: string) => PRODUCTS.some((product) => product.id === id);
 
 const rotatingLines = [
   'YOUR POS SYSTEM?',
@@ -67,10 +73,12 @@ function InquiryDialog({
   open,
   onOpenChange,
   serviceId,
+  initialMode = 'inquiry',
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   serviceId: ProductId;
+  initialMode?: DialogMode;
 }) {
   const service = serviceId === CUSTOM_PRODUCT.id
     ? CUSTOM_PRODUCT
@@ -79,8 +87,19 @@ function InquiryDialog({
   const [accepted, setAccepted] = useState(false);
   const [emailDelayed, setEmailDelayed] = useState(false);
   const [formError, setFormError] = useState('');
+  const [mode, setMode] = useState<DialogMode>(initialMode);
+  const [checkoutServiceId, setCheckoutServiceId] = useState('');
+  const [checkoutPending, setCheckoutPending] = useState(false);
+  const [checkoutFallback, setCheckoutFallback] = useState(false);
+  const [readySubmitQueued, setReadySubmitQueued] = useState(false);
   const firstFieldRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   const sendInquiry = useSendInquiry();
+  const ready = mode === 'ready';
+  const checkoutConfig = useCheckoutConfig(open);
+  const checkoutPrice = checkoutConfig?.prices.find((price) => price.serviceId === checkoutServiceId);
+  const checkoutAvailable = checkoutConfig?.enabled !== false;
+  const pending = sendInquiry.isPending || checkoutPending;
 
   useEffect(() => {
     if (open) {
@@ -88,11 +107,27 @@ function InquiryDialog({
       setAccepted(false);
       setEmailDelayed(false);
       setFormError('');
+      setMode(initialMode);
+      setCheckoutServiceId(isStandardProduct(serviceId) ? serviceId : '');
+      setCheckoutPending(false);
+      setCheckoutFallback(false);
       sendInquiry.reset();
     }
   // Reset only when a new panel is opened, not when the mutation object changes.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, serviceId]);
+  }, [open, serviceId, initialMode]);
+
+  useEffect(() => {
+    if (!readySubmitQueued) return;
+    setReadySubmitQueued(false);
+    formRef.current?.requestSubmit();
+  }, [readySubmitQueued]);
+
+  const moveForward = () => {
+    setMode('ready');
+    setFormError('');
+    setReadySubmitQueued(true);
+  };
 
   const changeField = (field: keyof InquiryFields, value: string) => {
     setFields((current) => ({ ...current, [field]: value }));
@@ -102,6 +137,30 @@ function InquiryDialog({
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setFormError('');
+    if (ready) {
+      setCheckoutPending(true);
+      try {
+        const result = await startCheckout({
+          serviceId: checkoutServiceId,
+          name: fields.name.trim(),
+          businessName: fields.businessName.trim(),
+          email: fields.email.trim(),
+          phone: fields.phone.trim(),
+          message: fields.message.trim(),
+          website: fields.website.trim(),
+        });
+        if (result.checkoutUrl) {
+          window.location.assign(result.checkoutUrl);
+          return;
+        }
+        setCheckoutFallback(true);
+        setAccepted(true);
+      } catch (error) {
+        setFormError(error instanceof Error && error.message ? error.message : 'Something interrupted the request. Please try again.');
+      }
+      setCheckoutPending(false);
+      return;
+    }
     try {
       const result = await sendInquiry.mutateAsync({
         data: {
@@ -144,14 +203,18 @@ function InquiryDialog({
             <div>
               <p className="mono mb-2 text-[.68rem] uppercase tracking-[.18em] text-[#cd1725]">Thank you for reaching out</p>
               <DialogPrimitive.Title className="display text-3xl leading-[1.05] sm:text-4xl">
-                {accepted ? 'LOOKS LIKE THE START OF SOMETHING GOOD.' : 'Let’s talk it through.'}
+                {accepted ? 'LOOKS LIKE THE START OF SOMETHING GOOD.' : ready ? 'Let’s make it official.' : 'Let’s talk it through.'}
               </DialogPrimitive.Title>
               <DialogPrimitive.Description id="inquiry-description" className="mt-2 max-w-[38ch] text-sm leading-relaxed text-[#161616]/70">
                 {accepted
-                  ? emailDelayed
+                  ? checkoutFallback
+                    ? "Your details are saved. Online checkout isn't available right now, so our team will send you a secure payment link shortly."
+                    : emailDelayed
                     ? "Your message is safely saved. The email notification was delayed, so there's no need to submit it again."
                     : "Your message is safely saved and our team has been notified. We'll be in touch."
-                  : 'Tell us a little about your business. A real person will follow up.'}
+                  : ready
+                    ? 'Every field is required. Next, you’ll pay securely with Stripe.'
+                    : 'Tell us a little about your business. A real person will follow up.'}
               </DialogPrimitive.Description>
             </div>
             <DialogPrimitive.Close
@@ -169,6 +232,20 @@ function InquiryDialog({
             </div>
           ) : (
             <>
+              {ready ? (
+                <div className="mb-5 border-l-[3px] border-[#176b45] bg-white px-4 py-3" data-testid="panel-checkout-plan">
+                  <label htmlFor="checkout-service" className="mono text-[.62rem] uppercase tracking-[.15em] text-[#161616]/65">I’m ready to start <span className="text-[#cd1725]">*</span></label>
+                  <select id="checkout-service" form="inquiry-form" className="field mt-1 font-extrabold" required value={checkoutServiceId} onChange={(e) => setCheckoutServiceId(e.target.value)} data-testid="select-checkout-service">
+                    <option value="" disabled>Choose a service</option>
+                    {PRODUCTS.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}
+                  </select>
+                  {checkoutPrice && (
+                    <p className="mt-2 text-sm font-semibold" data-testid="text-checkout-price">
+                      {formatCents(checkoutPrice.monthlyCents)}/month{checkoutPrice.setupCents > 0 ? ` + ${formatCents(checkoutPrice.setupCents)} one-time setup on your first invoice` : ''}. Month-to-month.
+                    </p>
+                  )}
+                </div>
+              ) : (
               <div className="mb-5 flex items-start justify-between gap-3 border-l-[3px] border-[#cd1725] bg-white px-4 py-3">
                 <div>
                   <p className="mono text-[.62rem] uppercase tracking-[.15em] text-[#161616]/65">I’m interested in</p>
@@ -176,7 +253,8 @@ function InquiryDialog({
                 </div>
                 <span className="mono mt-1 text-[.62rem] uppercase tracking-[.12em] text-[#161616]/65">Selected</span>
               </div>
-              <form onSubmit={handleSubmit}>
+              )}
+              <form id="inquiry-form" ref={formRef} onSubmit={handleSubmit}>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <label>
                     <span className="form-label">Your name <span className="text-[#cd1725]">*</span></span>
@@ -191,13 +269,13 @@ function InquiryDialog({
                     <input className="field" type="email" autoComplete="email" required maxLength={254} value={fields.email} onChange={(e) => changeField('email', e.target.value)} placeholder="you@yourbusiness.com" data-testid="input-inquiry-email" />
                   </label>
                   <label>
-                    <span className="form-label">Phone <span className="font-normal text-[#161616]/65">(optional)</span></span>
-                    <input className="field" type="tel" autoComplete="tel" maxLength={50} value={fields.phone} onChange={(e) => changeField('phone', e.target.value)} placeholder="(555) 000-0000" data-testid="input-inquiry-phone" />
+                    <span className="form-label">Phone {ready ? <span className="text-[#cd1725]">*</span> : <span className="font-normal text-[#161616]/65">(optional)</span>}</span>
+                    <input className="field" type="tel" autoComplete="tel" required={ready} minLength={ready ? 10 : undefined} maxLength={50} value={fields.phone} onChange={(e) => changeField('phone', e.target.value)} placeholder="(555) 000-0000" data-testid="input-inquiry-phone" />
                   </label>
                 </div>
                 <label className="mt-4 block">
-                  <span className="form-label">What would you like help with? <span className="font-normal text-[#161616]/65">(optional)</span></span>
-                  <textarea className="field min-h-24 resize-y" maxLength={4000} value={fields.message} onChange={(e) => changeField('message', e.target.value)} placeholder="A few details are plenty." data-testid="input-inquiry-message" />
+                  <span className="form-label">What would you like help with? {ready ? <span className="text-[#cd1725]">*</span> : <span className="font-normal text-[#161616]/65">(optional)</span>}</span>
+                  <textarea className="field min-h-24 resize-y" required={ready} maxLength={4000} value={fields.message} onChange={(e) => changeField('message', e.target.value)} placeholder="A few details are plenty." data-testid="input-inquiry-message" />
                 </label>
                 <div aria-hidden="true" className="absolute -left-[10000px] top-auto h-px w-px overflow-hidden">
                   <label htmlFor="inquiry-website">Website</label>
@@ -209,17 +287,42 @@ function InquiryDialog({
                     <p className="mt-1 font-bold">Your details are still here. Please try again.</p>
                   </div>
                 )}
+                {ready && !checkoutAvailable && (
+                  <p className="mt-4 border border-[#161616]/20 bg-[#ffda43]/40 px-4 py-3 text-sm leading-relaxed" data-testid="status-checkout-unavailable">
+                    Online checkout is temporarily unavailable. Submit and we’ll save your details and send you a secure payment link.
+                  </p>
+                )}
                 <button
                   type="submit"
-                  disabled={sendInquiry.isPending}
-                  className="primary-button mt-5 flex min-h-[54px] w-full items-center justify-center gap-3 bg-[#cd1725] px-5 font-extrabold text-white disabled:cursor-wait disabled:opacity-65"
-                  data-testid="button-submit-inquiry"
+                  disabled={pending}
+                  className={`primary-button mt-5 flex min-h-[54px] w-full items-center justify-center gap-3 px-5 font-extrabold text-white disabled:cursor-wait disabled:opacity-65 ${ready ? 'bg-[#176b45]' : 'bg-[#cd1725]'}`}
+                  data-testid={ready ? 'button-submit-checkout' : 'button-submit-inquiry'}
                 >
-                  {sendInquiry.isPending ? (
-                    <><span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden="true" /> Sending your note…</>
-                  ) : <>LET&apos;S GET STARTED ↗</>}
+                  {pending ? (
+                    <><span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden="true" /> {ready ? 'Saving your details…' : 'Sending your note…'}</>
+                  ) : ready
+                    ? checkoutAvailable ? <>CONTINUE TO SECURE CHECKOUT ↗</> : <>SAVE &amp; REQUEST PAYMENT LINK ↗</>
+                    : <>LET&apos;S GET STARTED ↗</>}
                 </button>
-                <p className="mt-3 text-center text-xs leading-relaxed text-[#161616]/65">No pressure. Just a real conversation about your follow-up.</p>
+                {ready ? (
+                  <p className="mt-3 text-center text-xs leading-relaxed text-[#161616]/65">
+                    Just want to talk first?{' '}
+                    <button type="button" onClick={() => { setMode('inquiry'); setFormError(''); }} className="font-bold text-[#161616] underline underline-offset-2" data-testid="button-back-to-inquiry">Send a message instead</button>
+                  </p>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={moveForward}
+                      disabled={pending}
+                      className="secondary-button mt-3 flex min-h-[50px] w-full items-center justify-center gap-2 border-2 border-[#176b45] bg-white px-5 text-sm font-extrabold uppercase tracking-[.04em] text-[#176b45] disabled:opacity-65"
+                      data-testid="button-ready-to-move-forward"
+                    >
+                      I&apos;m ready to move forward →
+                    </button>
+                    <p className="mt-3 text-center text-xs leading-relaxed text-[#161616]/65">No pressure. Just a real conversation about your follow-up.</p>
+                  </>
+                )}
               </form>
             </>
           )}
@@ -229,21 +332,26 @@ function InquiryDialog({
   );
 }
 
-function Home() {
-  const [inquiryOpen, setInquiryOpen] = useState(false);
+function Home({ startReady = false }: { startReady?: boolean }) {
+  const [inquiryOpen, setInquiryOpen] = useState(startReady);
   useMenuEntryScroll(inquiryOpen);
-  const [selectedService, setSelectedService] = useState<ProductId>(PRODUCTS[0].id);
+  const [selectedService, setSelectedService] = useState<ProductId>(startReady ? CUSTOM_PRODUCT.id : PRODUCTS[0].id);
+  const [dialogMode, setDialogMode] = useState<DialogMode>(startReady ? 'ready' : 'inquiry');
   const openerRef = useRef<HTMLElement | null>(null);
   const health = useHealthCheck();
 
   const openInquiry = (serviceId: ProductId) => {
     openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setSelectedService(serviceId);
+    setDialogMode('inquiry');
     setInquiryOpen(true);
   };
 
   const changeInquiryOpen = (nextOpen: boolean) => {
     setInquiryOpen(nextOpen);
+    if (!nextOpen && window.location.pathname === '/start') {
+      window.history.replaceState(null, '', '/');
+    }
     if (!nextOpen) {
       window.requestAnimationFrame(() => openerRef.current?.focus());
     }
@@ -335,7 +443,7 @@ function Home() {
           {health.isLoading ? 'API process: checking' : health.error ? 'API process: unavailable' : `API process: ${health.data?.status ?? 'unknown'}`}
         </p>
       </footer>
-      <InquiryDialog open={inquiryOpen} onOpenChange={changeInquiryOpen} serviceId={selectedService} />
+      <InquiryDialog open={inquiryOpen} onOpenChange={changeInquiryOpen} serviceId={selectedService} initialMode={dialogMode} />
     </div>
   );
 }
@@ -346,7 +454,10 @@ function App() {
       <Switch>
         <Route path="/privacy" component={PrivacyPage} />
         <Route path="/sms-terms" component={SmsTermsPage} />
-        <Route component={Home} />
+        <Route path="/checkout/success" component={CheckoutSuccessPage} />
+        <Route path="/checkout/cancel" component={CheckoutCancelPage} />
+        <Route path="/start">{() => <Home startReady />}</Route>
+        <Route>{() => <Home />}</Route>
       </Switch>
     </QueryClientProvider>
   );

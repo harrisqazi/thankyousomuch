@@ -10,7 +10,11 @@
     { "source": "/privacy", "destination": "/privacy.html" },
     { "source": "/privacy/", "destination": "/privacy.html" },
     { "source": "/sms-terms", "destination": "/sms-terms.html" },
-    { "source": "/sms-terms/", "destination": "/sms-terms.html" }
+    { "source": "/sms-terms/", "destination": "/sms-terms.html" },
+    { "source": "/start", "destination": "/index.html" },
+    { "source": "/start/", "destination": "/index.html" },
+    { "source": "/checkout/success", "destination": "/index.html" },
+    { "source": "/checkout/cancel", "destination": "/index.html" }
   ],
   "functions": {
     "api/[...path].js": { "maxDuration": 60 },

@@ -82,8 +82,10 @@ export function slotPrompt(slots: OfferedSlot[]): string {
     + SMS_DISCLOSURE;
 }
 
+export const PAYMENT_LINK = `${SITE_URL}/start`;
+
 export function bookingConfirmedText(slot: OfferedSlot): string {
-  return `You're booked for ${slot.label}. Our team will follow up at that time. ${SITE_URL} ${SMS_DISCLOSURE}`;
+  return `You're booked for ${slot.label}. Our team will follow up at that time. Ready to start now? ${PAYMENT_LINK} ${SMS_DISCLOSURE}`;
 }
 
 export function inboundText(text: string): string {
