@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { checkoutPrice, checkoutSessionParams } from "./stripe-checkout";
+import { checkoutPrice, checkoutSessionParams, PAYMENT_LINKS, paymentLinkUrl } from "./stripe-checkout";
 import { bookingConfirmedText } from "../telnyx/sms-booking";
 
 test("checkout prices default to the menu and can be overridden by env", () => {
@@ -49,4 +49,12 @@ test("booking confirmation SMS links to checkout and keeps STOP/HELP", () => {
   const text = bookingConfirmedText({ id: "1", label: "Mon, Nov 30, 10:00 AM EST", at: "2026-11-30T15:00:00.000Z" });
   assert.match(text, /https:\/\/www\.thankyousomuch\.ai\/start/);
   assert.match(text, /Reply STOP to opt out, HELP for help\./);
+});
+
+test("payment link fallback prefills email and carries the lead id", () => {
+  const url = new URL(paymentLinkUrl("ai-receptionist", "pat+qa@example.com", "4d7764c3-34d4-4c19-84c0-9ce5cf536d8b"));
+  assert.equal(url.origin, "https://buy.stripe.com");
+  assert.equal(url.searchParams.get("prefilled_email"), "pat+qa@example.com");
+  assert.equal(url.searchParams.get("client_reference_id"), "4d7764c3-34d4-4c19-84c0-9ce5cf536d8b");
+  assert.equal(Object.keys(PAYMENT_LINKS).length, 4);
 });

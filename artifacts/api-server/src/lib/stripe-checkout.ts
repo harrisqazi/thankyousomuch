@@ -45,19 +45,40 @@ function usdToCents(raw: string | undefined, fallbackUsd: number): number {
 }
 
 /** Catalog prices, overridable per product with e.g. STRIPE_MISSED_CALL_RESCUE_MONTHLY_USD=199. */
-export function checkoutPrice(serviceId: string): CheckoutPrice | undefined {
+export function checkoutPrice(serviceId: string, useOverrides = true): CheckoutPrice | undefined {
   const product = PRODUCTS.find((item) => item.id === serviceId);
   if (!product) return undefined;
   return {
     serviceId: product.id,
     name: product.name,
-    monthlyCents: usdToCents(process.env[envName(product.id, "MONTHLY")], product.monthlyPrice),
-    setupCents: usdToCents(process.env[envName(product.id, "SETUP")], product.setupPrice),
+    monthlyCents: usdToCents(useOverrides ? process.env[envName(product.id, "MONTHLY")] : undefined, product.monthlyPrice),
+    setupCents: usdToCents(useOverrides ? process.env[envName(product.id, "SETUP")] : undefined, product.setupPrice),
   };
 }
 
-export function checkoutPrices(): CheckoutPrice[] {
-  return PRODUCTS.map((product) => checkoutPrice(product.id)!);
+export function checkoutPrices(useOverrides = true): CheckoutPrice[] {
+  return PRODUCTS.map((product) => checkoutPrice(product.id, useOverrides)!);
+}
+
+/**
+ * Live Stripe Payment Links (public URLs, not secrets): menu monthly price plus the
+ * one-time setup on the first invoice, redirecting to /checkout/success. Their
+ * amounts are fixed in Stripe, so the *_USD overrides only affect Checkout Sessions.
+ * Override a link with e.g. STRIPE_MISSED_CALL_RESCUE_PAYMENT_LINK.
+ */
+export const PAYMENT_LINKS: Record<StandardProductId, string> = {
+  "missed-call-rescue": "https://buy.stripe.com/cNi14p0DKagObdYb4z77O02",
+  "instant-lead-reply": "https://buy.stripe.com/4gMcN7dqwex44PAgoT77O03",
+  "quote-follow-up": "https://buy.stripe.com/dRmfZj5Y43Sqdm68Wr77O04",
+  "ai-receptionist": "https://buy.stripe.com/3cIbJ35Y44Wu6XIdcH77O05",
+};
+
+export function paymentLinkUrl(serviceId: StandardProductId, email: string, leadId: string): string {
+  const envKey = `STRIPE_${serviceId.toUpperCase().replace(/[^A-Z0-9]+/g, "_")}_PAYMENT_LINK`;
+  const url = new URL(process.env[envKey]?.trim() || PAYMENT_LINKS[serviceId]);
+  url.searchParams.set("prefilled_email", email);
+  url.searchParams.set("client_reference_id", leadId);
+  return url.toString();
 }
 
 export function siteUrl(): string {

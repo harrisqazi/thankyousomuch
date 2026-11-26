@@ -6,6 +6,7 @@ import {
   checkoutPrices,
   createCheckoutSession,
   isCheckoutEnabled,
+  paymentLinkUrl,
   StripeCheckoutError,
 } from "../lib/stripe-checkout";
 
@@ -14,9 +15,11 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 router.get("/checkout-config", (_req, res) => {
   res.setHeader("Cache-Control", "no-store");
+  const sessions = isCheckoutEnabled();
   res.json({
-    enabled: isCheckoutEnabled(),
-    prices: checkoutPrices().map(({ serviceId, monthlyCents, setupCents }) => ({ serviceId, monthlyCents, setupCents })),
+    enabled: true,
+    mode: sessions ? "session" : "payment_link",
+    prices: checkoutPrices(sessions).map(({ serviceId, monthlyCents, setupCents }) => ({ serviceId, monthlyCents, setupCents })),
   });
 });
 
@@ -73,8 +76,9 @@ router.post("/checkout", inquiryRateLimit, async (req, res): Promise<void> => {
     return;
   }
 
+  const fallbackUrl = paymentLinkUrl(price.serviceId, email, inquiry.id);
   if (!isCheckoutEnabled()) {
-    res.status(202).json({ accepted: true, referenceId: inquiry.id, checkoutUrl: null, reason: "unavailable" });
+    res.status(201).json({ accepted: true, referenceId: inquiry.id, checkoutUrl: fallbackUrl, mode: "payment_link" });
     return;
   }
   try {
@@ -88,7 +92,7 @@ router.post("/checkout", inquiryRateLimit, async (req, res): Promise<void> => {
       message,
     }, price);
     req.log.info({ inquiryId: inquiry.id, checkoutSessionId: session.id }, "Stripe Checkout session created");
-    res.status(201).json({ accepted: true, referenceId: inquiry.id, checkoutUrl: session.url });
+    res.status(201).json({ accepted: true, referenceId: inquiry.id, checkoutUrl: session.url, mode: "session" });
   } catch (error) {
     req.log.error(
       {
@@ -98,7 +102,7 @@ router.post("/checkout", inquiryRateLimit, async (req, res): Promise<void> => {
       },
       "Stripe Checkout session failed",
     );
-    res.status(202).json({ accepted: true, referenceId: inquiry.id, checkoutUrl: null, reason: "error" });
+    res.status(201).json({ accepted: true, referenceId: inquiry.id, checkoutUrl: fallbackUrl, mode: "payment_link" });
   }
 });
 
