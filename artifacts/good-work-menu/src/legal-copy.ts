@@ -2,6 +2,9 @@ export const PRIVACY_URL = 'https://www.thankyousomuch.ai/privacy';
 export const SMS_TERMS_URL = 'https://www.thankyousomuch.ai/sms-terms';
 export const CONTACT_NUMBER_DISPLAY = '(859) 715-8052';
 export const CONTACT_NUMBER_E164 = '+18597158052';
+/** iOS uses &body; Android uses ?body. `?&body=` is accepted by both. */
+export const CONTACT_SMS_HREF = 'sms:+18597158052?&body=HI';
+export const CONTACT_SMS_LABEL = 'Text HI to (859) 715-8052';
 
 export const LEAD_MAGNET_LINE =
   'Text HI or call (859) 715-8052 and press 1.';

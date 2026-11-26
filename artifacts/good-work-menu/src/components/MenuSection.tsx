@@ -1,6 +1,7 @@
 import { ArrowUpRight } from "lucide-react";
 import { formatUsd, PRODUCTS, type ProductId } from "@workspace/api-zod";
 import { ProductLeadMagnet } from "./LeadMagnetCta";
+import { CONTACT_SMS_HREF, CONTACT_SMS_LABEL } from "../legal-copy";
 
 function LineIllustration({ kind }: { kind: (typeof PRODUCTS)[number]["icon"] }) {
   const shared = {
@@ -62,7 +63,7 @@ export function MenuSection({ onSelectService }: { onSelectService: (id: Product
         </div>
         <p className="mt-5 text-center text-[.62rem] font-extrabold leading-relaxed tracking-[.07em] sm:text-xs" data-testid="text-menu-terms">MONTH-TO-MONTH · STANDARD INSTALLATION INCLUDED AFTER SETUP · NO LONG-TERM CONTRACT</p>
         <p className="mx-auto mt-4 max-w-[70ch] text-center text-[.72rem] font-semibold leading-relaxed text-white/90" data-testid="text-menu-sms">
-          Text HI, HELLO, or HEY to <a className="underline underline-offset-2" href="tel:+18597158052">(859) 715-8052</a> to request a callback. Message frequency varies. Message and data rates may apply. Reply STOP to opt out, HELP for help. Consent is not a condition of purchase. Privacy: <a className="underline underline-offset-2" href="/privacy">thankyousomuch.ai/privacy</a>
+          <a className="underline underline-offset-2 text-[#6EB2FF] decoration-[#6EB2FF] visited:text-[#6EB2FF] hover:text-[#6EB2FF] active:text-[#6EB2FF]" href={CONTACT_SMS_HREF}>{CONTACT_SMS_LABEL}</a> to request a callback. Message frequency varies. Message and data rates may apply. Reply STOP to opt out, HELP for help. Consent is not a condition of purchase. Privacy: <a className="underline underline-offset-2" href="/privacy">thankyousomuch.ai/privacy</a>
         </p>
       </div>
     </section>
