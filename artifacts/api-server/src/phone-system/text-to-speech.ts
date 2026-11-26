@@ -24,7 +24,7 @@ export type VoiceFlow = {
 
 export const voiceFlows: Record<string, VoiceFlow> = {
   "tysm-get-started": {
-    version: "4",
+    version: "5",
     voice: "woman",
     language: "en-US",
     voiceSpeed: 1,
@@ -32,7 +32,7 @@ export const voiceFlows: Record<string, VoiceFlow> = {
     options: {
       "1": { action: "consent-and-text" },
     },
-    introText: "{businessName}: We've saved your number as {callerNumber} and will call during regular business hours. What's your name and business and preferred call back number? We look forward to helping your business grow. Reply with Name: ...; Business: ...; Callback: ...",
+    introText: "{businessName}: We've saved your number as {callerNumber} and will call during regular business hours. What's your name and business and preferred call back number? We look forward to helping your business grow. Reply with Name: ...; Business: ...; Callback: ... https://www.thankyousomuch.ai",
     noInputMessage: "No text-message consent was recorded. Thank you for calling.",
     invalidOptionMessage: "That option was not selected. No text-message consent was recorded. Please call again.",
     consentSavedMessage: "A message has been sent to your telephone device, please respond via text message.",

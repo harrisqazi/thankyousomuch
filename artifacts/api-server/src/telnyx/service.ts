@@ -6,7 +6,7 @@ import { openingPrompt, sayAndHangupXml, sayXml, texmlBaseUrl } from "./texml";
 import { leadSummary, updateLead } from "./lead-details";
 import {
   appointmentEmail, bookingConfirmedText, inboundGreetingText, inboundText, isGreeting, isGreetingOnly,
-  matchSlot, offerSlots, parseNameAndNumber, slotPrompt,
+  matchSlot, offerSlots, parseNameAndNumber, slotPrompt, unrecognizedReplyText,
 } from "./sms-booking";
 
 export const DISCLOSURE_VERSION = consentVersion;
@@ -97,6 +97,10 @@ export async function recordSelection(store: StateStore, business: Business, inp
         now.toISOString(), key(`intro:${input.CallSid}`));
       state.leads ||= {};
       const lead = state.leads[callerKey] ||= { originatingNumber: input.From };
+      // A new press-1 inquiry starts booking even if this number booked a prior slot.
+      lead.smsFlow = "awaiting_details";
+      lead.offeredSlots = undefined;
+      lead.appointment = undefined;
       const notification = enqueue(state, "email", input.From,
         `Press-1 phone inquiry\n${leadSummary(lead)}`, now.toISOString(), key(`call-notification:${input.CallSid}`));
       state.jobs[notification].lead = structuredClone(lead);
@@ -250,19 +254,28 @@ export async function recordMessage(store: StateStore, business: Business, event
       if (!isControl && !jobQueued && !state.optOuts[callerKey]) {
         const parsed = parseNameAndNumber(text, lead, caller);
         const hasDetails = Boolean(parsed.customerName && parsed.preferredCallbackNumber);
-        if (hasDetails && lead.smsFlow !== "booked") {
+        if (hasDetails) {
           lead = parsed;
           grantInquiry();
           const slots = offerSlots(new Date(d.occurred_at));
-          lead = { ...lead, smsFlow: "awaiting_slot", offeredSlots: slots };
+          lead = { ...lead, smsFlow: "awaiting_slot", offeredSlots: slots, appointment: undefined };
           enqueue(state, "sms", caller, slotPrompt(slots), d.occurred_at, key(`inbound-slots:${p.id}`));
           jobQueued = true;
         } else if (lead.smsFlow === "awaiting_details") {
           lead = parsed;
+          enqueue(state, "sms", caller, unrecognizedReplyText, d.occurred_at, key(`inbound-nudge:${p.id}`));
+          jobQueued = true;
         } else if (isGreetingOnly(text) || (greeting && lead.smsFlow !== "awaiting_slot")) {
           grantInquiry();
           lead = { ...lead, smsFlow: "awaiting_details", offeredSlots: undefined, appointment: undefined };
           enqueue(state, "sms", caller, inboundGreetingText, d.occurred_at, key(`inbound-intro:${p.id}`));
+          jobQueued = true;
+        } else if (lead.smsFlow === "awaiting_slot" && lead.offeredSlots?.length) {
+          enqueue(state, "sms", caller, slotPrompt(lead.offeredSlots), d.occurred_at, key(`inbound-slots-repeat:${p.id}`));
+          jobQueued = true;
+        } else {
+          grantInquiry();
+          enqueue(state, "sms", caller, unrecognizedReplyText, d.occurred_at, key(`inbound-nudge:${p.id}`));
           jobQueued = true;
         }
       }

@@ -139,6 +139,32 @@ test("press 1 confirms only the known number and asks for missing business detai
   assert.ok(sms.text.includes(input.From));
   assert.ok(!sms.text.includes("{callerNumber}"));
   assert.match(sms.text, /preferred call back number/);
+  assert.match(sms.text, /https:\/\/www.thankyousomuch.ai/);
+  assert.equal(stateOf(store).leads?.[key(input.From)]?.smsFlow, "awaiting_details");
+});
+
+test("name and number after press-1 offers slots even if a prior SMS booking exists", async () => {
+  const store = memoryStore();
+  await recordMessage(store, business, received("Harris 2025550199", "prior-book"));
+  await recordMessage(store, business, received("1", "prior-pick"));
+  assert.equal(stateOf(store).leads?.[key(input.From)]?.smsFlow, "booked");
+  await consent(store, "after-call");
+  assert.equal(stateOf(store).leads?.[key(input.From)]?.smsFlow, "awaiting_details");
+  await recordMessage(store, business, received("harris qazi 8596840478", "after-call-details"));
+  const sms = Object.values(stateOf(store).jobs).filter(j => j.kind === "sms");
+  assert.match(sms.at(-1)!.text, /select one of the following times/);
+  assert.match(sms.at(-1)!.text, /https:\/\/www.thankyousomuch.ai/);
+  assert.equal(stateOf(store).leads?.[key(input.From)]?.smsFlow, "awaiting_slot");
+});
+
+test("unrecognized inbound text gets a helpful SMS instead of silence", async () => {
+  const store = memoryStore();
+  await recordMessage(store, business, received("please call me back tomorrow", "noise"));
+  const sms = Object.values(stateOf(store).jobs).filter(j => j.kind === "sms");
+  assert.equal(sms.length, 1);
+  assert.match(sms[0].text, /name and a callback number/i);
+  assert.match(sms[0].text, /https:\/\/www.thankyousomuch.ai/);
+  assert.match(sms[0].text, /Reply STOP to opt out, HELP for help/);
 });
 
 test("texting hi returns the same personalized intro once and cannot override STOP", async () => {
@@ -152,6 +178,7 @@ test("texting hi returns the same personalized intro once and cannot override ST
   assert.match(sms[0].text, /recuperate your lost leads/i);
   assert.match(sms[0].text, /name and number/i);
   assert.match(sms[0].text, /Reply STOP to opt out, HELP for help/);
+  assert.match(sms[0].text, /https:\/\/www.thankyousomuch.ai/);
   assert.equal(state.consents[key(input.From)].action, "inbound-inquiry");
   await recordMessage(store, business, received("STOP", "stop-greeting"));
   await recordMessage(store, business, received("hi", "blocked-greeting"));
@@ -183,7 +210,7 @@ test("lead fields are private, separately labeled and snapshotted in each email"
   assert.equal(email.lead?.customerName, "Jordan Example");
   const initialEmail = Object.values(state.jobs).find(j => j.kind === "email" && !j.lead?.customerName);
   assert.match(initialEmail!.text, /Name: Not provided yet/);
-  assert.equal(Object.values(state.jobs).filter(j => j.kind === "sms").length, 2);
+  assert.equal(Object.values(stateOf(store).jobs).filter(j => j.kind === "sms").length, 4);
 });
 
 test("BOM and trailing newline still match HI", async () => {
@@ -230,6 +257,7 @@ test("inbound hello then name and number offers slots and books a reply", async 
   const slotSms = Object.values(afterDetails.jobs).filter(j => j.kind === "sms");
   assert.equal(slotSms.length, 2);
   assert.match(slotSms[1].text, /Thank you, please select one of the following times/);
+  assert.match(slotSms[1].text, /https:\/\/www.thankyousomuch.ai/);
   assert.match(slotSms[1].text, /Reply STOP to opt out, HELP for help/);
   await recordMessage(store, business, received("1", "pick"));
   const booked = stateOf(store);
@@ -237,6 +265,7 @@ test("inbound hello then name and number offers slots and books a reply", async 
   assert.ok(booked.leads?.[key(input.From)]?.appointment?.slotLabel);
   assert.equal(Object.values(booked.jobs).filter(j => j.kind === "sms").length, 3);
   assert.match(Object.values(booked.jobs).find(j => j.text.includes("You're booked"))!.text, /You're booked/);
+  assert.match(Object.values(booked.jobs).find(j => j.text.includes("You're booked"))!.text, /https:\/\/www.thankyousomuch.ai/);
   const appointmentMail = Object.values(booked.jobs).find(j => j.kind === "email" && j.text.includes("SMS appointment booked"));
   assert.ok(appointmentMail);
   assert.match(appointmentMail.text, /Harris/);
@@ -246,9 +275,10 @@ test("unstructured messages are preserved without inventing names or preferred n
   const store = memoryStore();
   await recordMessage(store, business, received("I run a repair business, call me", "unstructured"));
   const state = stateOf(store);
-  assert.deepEqual(state.leads?.[key(input.From)], { originatingNumber: input.From });
+  assert.equal(state.leads?.[key(input.From)]?.originatingNumber, input.From);
+  assert.equal(state.leads?.[key(input.From)]?.customerName, undefined);
   assert.match(Object.values(state.jobs).find(j => j.kind === "email")!.text, /I run a repair business/);
-  assert.equal(Object.keys(state.consents).length, 0);
+  assert.equal(Object.values(state.jobs).filter(j => j.kind === "sms").length, 1);
 });
 
 test("new businesses stay dry-run without individual approval even when global switches are live", async () => {
@@ -405,12 +435,12 @@ test("inbound replies are saved and notified once, including duplicate events un
   let emails = 0;
   await processJobs(store, business, { env: {}, notify: async (b, job) => {
     emails++; assert.equal(b.recipient, business.recipient); assert.match(job.text, /Can you help/);
-  }, sendSms: async () => { throw new Error("unexpected"); } });
+  }, sendSms: async () => ({ id: "nudge" }) });
   assert.equal(emails, 1);
   assert.equal(Object.keys(stateOf(store).messages).length, 1);
   await recordMessage(store, business, received("HELP", "help-1"));
   assert.match(stateOf(store).messages[key("help-1")].helpResponse!, /admin@thankyousomuch.ai/);
-  assert.equal(Object.values(stateOf(store).jobs).filter(j => j.kind === "sms").length, 0);
+  assert.equal(Object.values(stateOf(store).jobs).filter(j => j.kind === "sms").length, 1);
 });
 
 test("tenants reject mismatched numbers/profiles and maintain separate data/notification recipients", async () => {

@@ -67,6 +67,8 @@ export function spokenPrompt(business: PhoneNumber, flow: VoiceFlow): string {
 
 export function introductoryText(business: PhoneNumber, flow: VoiceFlow, callerNumber = ""): string {
   if (flow.introText.includes("{callerNumber}") && !callerNumber) throw new Error("Caller number required for introductory text");
-  return fillText(flow.introText, business, flow, callerNumber)
+  const body = fillText(flow.introText, business, flow, callerNumber);
+  const withSite = /thankyousomuch\.ai/i.test(body) ? body : `${body} https://www.thankyousomuch.ai`;
+  return withSite
     + " Msg frequency varies. Msg & data rates may apply. Reply STOP to opt out, HELP for help.";
 }

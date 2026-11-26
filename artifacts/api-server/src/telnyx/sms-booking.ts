@@ -2,10 +2,15 @@ import type { LeadDetails } from "./state";
 
 export const SMS_DISCLOSURE =
   "Msg frequency varies. Msg & data rates may apply. Reply STOP to opt out, HELP for help.";
+export const SITE_URL = "https://www.thankyousomuch.ai";
 
 export const inboundGreetingText =
   "Looking to recuperate your lost leads? Tell us your name and number and we'll book a call as soon as possible. "
+  + `${SITE_URL} `
   + SMS_DISCLOSURE;
+
+export const unrecognizedReplyText =
+  `To book a call, text your name and a callback number (or HI to start). ${SITE_URL} ${SMS_DISCLOSURE}`;
 
 export type OfferedSlot = { id: "1" | "2" | "3"; label: string; at: string };
 
@@ -73,11 +78,12 @@ export function slotPrompt(slots: OfferedSlot[]): string {
   return "Thank you, please select one of the following times:\n"
     + lines.join("\n")
     + "\nReply 1, 2, or 3. "
+    + `${SITE_URL} `
     + SMS_DISCLOSURE;
 }
 
 export function bookingConfirmedText(slot: OfferedSlot): string {
-  return `You're booked for ${slot.label}. Our team will follow up at that time. ${SMS_DISCLOSURE}`;
+  return `You're booked for ${slot.label}. Our team will follow up at that time. ${SITE_URL} ${SMS_DISCLOSURE}`;
 }
 
 export function inboundText(text: string): string {
