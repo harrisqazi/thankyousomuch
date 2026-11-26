@@ -27,7 +27,7 @@ export function useCheckoutConfig(active: boolean) {
   useEffect(() => {
     if (!active || config) return;
     let cancelled = false;
-    fetch('/api/checkout/config', { headers: { Accept: 'application/json' } })
+    fetch('/api/checkout-config', { headers: { Accept: 'application/json' } })
       .then((response) => (response.ok ? response.json() : null))
       .then((data: CheckoutConfig | null) => {
         if (!cancelled) setConfig(data ?? { enabled: false, prices: [] });

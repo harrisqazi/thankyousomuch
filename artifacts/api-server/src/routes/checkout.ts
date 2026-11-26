@@ -12,7 +12,7 @@ import {
 const router: IRouter = Router();
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-router.get("/checkout/config", (_req, res) => {
+router.get("/checkout-config", (_req, res) => {
   res.setHeader("Cache-Control", "no-store");
   res.json({
     enabled: isCheckoutEnabled(),
