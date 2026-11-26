@@ -24,7 +24,7 @@ export function CheckoutSuccessPage() {
       <p className="mono mb-3 text-[.68rem] uppercase tracking-[.18em] text-[#cd1725]">Payment received</p>
       <h1 className="display text-3xl uppercase leading-[1.05] sm:text-5xl" data-testid="text-checkout-success">Thank you so much.</h1>
       <p className="mx-auto mt-4 max-w-[46ch] text-sm font-semibold leading-relaxed sm:text-base">
-        You&apos;re all set. Stripe has emailed your receipt, and a real person from our team will reach out within one business day to start your setup.
+        You&apos;re all set. Your payment went through, and a real person from our team will reach out to start your setup.
       </p>
       <a href="/" className="primary-button mt-8 inline-flex min-h-[54px] items-center gap-3 bg-[#cd1725] px-7 text-sm font-extrabold text-white">Back to the menu ↗</a>
     </CheckoutChrome>
