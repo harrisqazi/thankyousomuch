@@ -24,7 +24,7 @@ export type VoiceFlow = {
 
 export const voiceFlows: Record<string, VoiceFlow> = {
   "tysm-get-started": {
-    version: "3",
+    version: "4",
     voice: "woman",
     language: "en-US",
     voiceSpeed: 1,
@@ -35,7 +35,7 @@ export const voiceFlows: Record<string, VoiceFlow> = {
     introText: "{businessName}: We've saved your number as {callerNumber} and will call during regular business hours. What's your name and business and preferred call back number? We look forward to helping your business grow. Reply with Name: ...; Business: ...; Callback: ...",
     noInputMessage: "No text-message consent was recorded. Thank you for calling.",
     invalidOptionMessage: "That option was not selected. No text-message consent was recorded. Please call again.",
-    consentSavedMessage: "Your text-message consent has been saved. Our team will follow up when messaging is available. Thank you for calling.",
+    consentSavedMessage: "A message has been sent to your telephone device, please respond via text message.",
     optedOutMessage: "Your choice was saved, but texts remain stopped. Text START to this number to opt back in.",
   },
   // Reuse this flow for a business's own incoming inquiries, or copy it and
@@ -52,7 +52,7 @@ export const voiceFlows: Record<string, VoiceFlow> = {
     introText: "{businessName}: Thanks for calling! How can we help with your inquiry?",
     noInputMessage: "No text-message consent was recorded. Thank you for calling.",
     invalidOptionMessage: "That option was not selected. No text-message consent was recorded. Please call again.",
-    consentSavedMessage: "Your text-message consent has been saved. Our team will follow up when messaging is available. Thank you for calling.",
+    consentSavedMessage: "A message has been sent to your telephone device, please respond via text message.",
     optedOutMessage: "Your choice was saved, but texts remain stopped. Text START to this number to opt back in.",
   },
 };

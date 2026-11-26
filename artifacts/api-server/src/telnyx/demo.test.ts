@@ -73,11 +73,30 @@ test("TeXML identifies the business, discloses SMS terms and routes exactly one 
   const store = memoryStore(), xml = await incomingCall(store, business, input, now);
   assert.match(xml, /^<\?xml.*<Response>/);
   assert.match(xml, /numDigits="1"/);
-  assert.match(xml, /action="\/voice\/selection"/);
   assert.match(xml, /Press 1/);
-  assert.match(xml, /voice="woman" language="en-US" voiceSpeed="1"/);
+  assert.match(xml, /voice="Polly.Joanna-Neural" language="en-US"/);
+  assert.match(xml, /action="https:\/\/www.thankyousomuch.ai\/voice\/selection"/);
   assert.ok(xml.indexOf("you agree to receive text messages") < xml.indexOf("<Gather"));
   for (const text of [business.name, "STOP", "HELP", "data rates", "not a condition"]) assert.ok(xml.includes(text));
+});
+
+test("TELNYX_TEXML_VOICE and TYSM_VOICE_GREETING_URL control spoken TeXML", async () => {
+  const store = memoryStore();
+  const previousVoice = process.env.TELNYX_TEXML_VOICE, previousPlay = process.env.TYSM_VOICE_GREETING_URL;
+  try {
+    process.env.TELNYX_TEXML_VOICE = "Polly.Matthew-Neural";
+    process.env.TYSM_VOICE_GREETING_URL = "https://cdn.example.com/tysm-open.mp3";
+    const xml = await incomingCall(store, business, { ...input, CallSid: "play-call" }, now);
+    assert.match(xml, /<Play>https:\/\/cdn.example.com\/tysm-open.mp3<\/Play>/);
+    assert.match(xml, /voice="Polly.Matthew-Neural"/);
+    assert.doesNotMatch(xml, /By pressing 1, you agree/);
+    const spoken = await recordSelection(store, business, { ...input, CallSid: "play-call", Digits: "1" }, now);
+    assert.match(spoken, /A message has been sent to your telephone device, please respond via text message/);
+    assert.match(spoken, /<Hangup\/>/);
+  } finally {
+    if (previousVoice === undefined) delete process.env.TELNYX_TEXML_VOICE; else process.env.TELNYX_TEXML_VOICE = previousVoice;
+    if (previousPlay === undefined) delete process.env.TYSM_VOICE_GREETING_URL; else process.env.TYSM_VOICE_GREETING_URL = previousPlay;
+  }
 });
 
 test("only 1 creates consent; requires a matching recent prompt; concurrent retries create one intro", async () => {
@@ -257,13 +276,14 @@ test("changing a flow during a call does not rewrite its prompt, key, voice, ver
     await recordSelection(store, business, { ...input, Digits: "2" }, now);
     assert.equal(Object.keys(stateOf(store).jobs).length, 0);
     const response = await recordSelection(store, business, { ...input, Digits: "1" }, now);
-    assert.match(response, /voice="woman"/);
+    assert.match(response, /voice="Polly.Joanna-Neural"/);
+    assert.match(response, /A message has been sent to your telephone device, please respond via text message/);
     assert.equal(stateOf(store).consents[key(input.From)].disclosureVersion,
       `inquiry-sms-v2:${business.flowId}:${original.version}`);
     assert.doesNotMatch(Object.values(stateOf(store).jobs)[0].text, /Changed SMS/);
     const newXml = await incomingCall(store, business, { ...input, CallSid: "new-version" }, now);
     assert.match(newXml, /Changed prompt. Press 2/);
-    assert.match(newXml, /voice="man"/);
+    assert.match(newXml, /voice="Polly.Joanna-Neural"/);
   } finally { voiceFlows[business.flowId] = original; }
 });
 

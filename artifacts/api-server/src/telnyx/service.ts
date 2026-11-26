@@ -2,6 +2,7 @@ import type { Business } from "./config";
 import { enqueue, key, type StateStore } from "./state";
 import { getVoiceFlow, spokenPrompt, fillText, introductoryText, consentVersion, consentDisclosure } from "../phone-system/flows";
 import type { VoiceFlow } from "../phone-system/text-to-speech";
+import { openingPrompt, sayAndHangupXml, sayXml, texmlBaseUrl } from "./texml";
 import { leadSummary, updateLead } from "./lead-details";
 import {
   appointmentEmail, bookingConfirmedText, inboundGreetingText, inboundText, isGreeting, isGreetingOnly,
@@ -27,10 +28,7 @@ export function voiceInput(value: Record<string, unknown>): VoiceInput {
 }
 export const xmlEscape = (s: string) => s.replaceAll("&", "&amp;").replaceAll("<", "&lt;")
   .replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&apos;");
-const say = (text: string, flow: VoiceFlow) =>
-  `<Say voice="${xmlEscape(flow.voice)}" language="${xmlEscape(flow.language)}" voiceSpeed="${flow.voiceSpeed}">${xmlEscape(text)}</Say>`;
-export const sayAndHangup = (text: string, flow: VoiceFlow) =>
-  `<?xml version="1.0" encoding="UTF-8"?><Response>${say(text, flow)}<Hangup/></Response>`;
+export const sayAndHangup = (text: string, _flow?: VoiceFlow) => sayAndHangupXml(text);
 
 export async function incomingCall(store: StateStore, business: Business, input: VoiceInput, now = new Date()) {
   const call = await store.transaction(business.id, state => {
@@ -57,13 +55,14 @@ export async function incomingCall(store: StateStore, business: Business, input:
     return structuredClone(saved);
   });
   const flow = call.flow!;
+  const action = `${texmlBaseUrl()}/voice/selection`;
   return `<?xml version="1.0" encoding="UTF-8"?><Response>`
     // Play the disclosure before accepting digits so an early press cannot
     // interrupt the caller's notice that pressing the key agrees to SMS.
-    + say(call.consentPreamble!, flow)
-    + `<Gather input="dtmf" numDigits="1" timeout="8" action="/voice/selection">`
-    + `${say(call.greeting!, flow)}</Gather>`
-    + `${say(fillText(flow.noInputMessage, business, flow), flow)}<Hangup/></Response>`;
+    + openingPrompt(call.consentPreamble!)
+    + `<Gather input="dtmf" numDigits="1" timeout="8" method="POST" action="${xmlEscape(action)}">`
+    + `${sayXml(call.greeting!)}</Gather>`
+    + `${sayXml(fillText(flow.noInputMessage, business, flow))}<Hangup/></Response>`;
 }
 
 export async function recordSelection(store: StateStore, business: Business, input: VoiceInput, now = new Date()) {

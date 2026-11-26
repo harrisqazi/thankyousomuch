@@ -7,6 +7,7 @@ import { startJobs as startRuntimeJobs } from "./runtime";
 import { logger } from "../lib/logger";
 import { rawWebhookBody } from "./webhook-body";
 import { appendInboundAudit, listInboundAudit, maskPhone, textPrefix } from "./inbound-audit";
+import { continueJobs, sayAndHangupXml } from "./texml";
 
 // Tests inject a no-op dispatcher so signed synthetic requests cannot email or text.
 export function publicHandlerError(error: unknown): string {
@@ -17,7 +18,7 @@ export function publicHandlerError(error: unknown): string {
   return `${error.name}: ${msg}`.slice(0, 160);
 }
 
-const voiceSorry = `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="woman" language="en-US">We're unable to complete this call right now. Please text HI to this number to book a time.</Say><Hangup/></Response>`;
+const voiceSorry = sayAndHangupXml("We're unable to complete this call right now. Please text HI to this number to book a time.");
 function isVoice(req: Request) {
   return /\/voice\//.test(`${req.originalUrl || ""}${req.path || ""}`);
 }
@@ -169,8 +170,8 @@ telnyxRouter.post("/voice/selection", raw, authenticated, async (req, res): Prom
   try {
     const input = form(req), business = findBusiness(input.To);
     const xml = await recordSelection(getStore(), business, input);
-    await startJobs(business, getStore());
     sendVoice(res, xml);
+    continueJobs(startJobs(business, getStore()));
   } catch {
     sendVoice(res, voiceSorry);
   }
