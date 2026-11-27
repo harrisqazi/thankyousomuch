@@ -28,7 +28,7 @@ export function HeaderLeadMagnet() {
 export function ProductLeadMagnet() {
   return (
     <div
-      className="mb-5 border-2 border-white bg-white px-4 py-4 text-[#161616] sm:mb-7 sm:px-6 sm:py-5"
+      className="mt-5 border-2 border-white bg-white px-4 py-4 text-[#161616] sm:mt-7 sm:px-6 sm:py-5"
       data-testid="product-lead-magnet"
     >
       <p className="mono text-[.62rem] font-bold uppercase tracking-[.16em]">Talk to us now</p>
